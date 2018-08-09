@@ -62,7 +62,16 @@ public class WorkChecker extends Observable implements Runnable
           int v = cuckoo[vs[0] = (int) (Cuckoo.NEDGES + solve.getGraph().sipnode(nonce, 1))];
           if (u == vs[0] || v == us[0])
             continue; // ignore duplicate edges
-          int nu = solve.path(u, us), nv = solve.path(v, vs);
+          int nu = 0, nv = 0;
+          try
+          {
+            nu = solve.path(u, us);
+            nv = solve.path(v, vs);
+          }
+          catch (RuntimeException e)
+          {
+            continue;
+          }
           if (us[nu] == vs[nv])
           {
             int min = nu < nv ? nu : nv;
@@ -83,10 +92,11 @@ public class WorkChecker extends Observable implements Runnable
                   WorkSubmitter ws = new WorkSubmitter(client, curWork, nonce, solve.getSols()[solve.getNsols() - 1]);
                   ws.addObserver(Miner.getInstance());
                   new Thread(ws).start();
+                  checking = false;
+                  break;
                 }
               }
             }
-            continue;
           }
           if (nu < nv)
           {

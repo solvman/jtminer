@@ -27,6 +27,8 @@ import java.net.URL;
 import java.util.Date;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -129,6 +131,17 @@ public class Miner implements Observer
     poller.addObserver(worker);
     t.setPriority(Thread.MIN_PRIORITY);
     t.start();
+    
+    TimerTask reporter = new TimerTask() {
+        public void run() {
+            report();
+        }
+    };
+    Timer timer = new Timer("Timer");
+     
+    long delay  = 30000L;
+    long period = 30000L;
+    timer.scheduleAtFixedRate(reporter, delay, period);
   }
 
   public static Miner getInstance()

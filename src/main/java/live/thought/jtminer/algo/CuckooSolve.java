@@ -4,10 +4,23 @@
 package live.thought.jtminer.algo;
 
 import java.util.Set;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+
 import java.util.HashSet;
 
 public class CuckooSolve
 {
+	private static final Logger LOG = Logger.getLogger(CuckooSolve.class.getCanonicalName());
+	static
+	{
+	  LOG.setLevel(Level.ALL);
+	  for (Handler handler : LOG.getParent().getHandlers())
+	      handler.setLevel(Level.ALL);
+	}
+	
   public static final int MAXPATHLEN = 4096;
   Cuckoo           graph;
   int              easiness;
@@ -36,13 +49,14 @@ public class CuckooSolve
     {
       if (++nu >= MAXPATHLEN)
       {
+    	String msg = null;
         while (nu-- != 0 && us[nu] != u)
           ;
         if (nu < 0)
-          System.out.println("maximum path length exceeded");
+          msg = "maximum path length exceeded";
         else
-          System.out.println("illegal " + (MAXPATHLEN - nu) + "-cycle");
-        Thread.currentThread().interrupt();
+          msg = "illegal " + (MAXPATHLEN - nu) + "-cycle";
+        throw new RuntimeException(msg);
       }
       us[nu] = u;
     }

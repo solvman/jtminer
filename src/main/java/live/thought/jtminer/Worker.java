@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -51,6 +52,7 @@ public class Worker extends Observable implements Observer, Runnable
   private volatile Work          curWork      = null;
   private AtomicLong             cycles       = new AtomicLong(0L);
   private AtomicLong             solutions    = new AtomicLong(0L);
+  private AtomicInteger          cycleIndex   = new AtomicInteger(0);
 
   private ArrayList<WorkChecker> checkers     = new ArrayList<WorkChecker>();
   private int[]                  checkerMutex = new int[0];
@@ -118,11 +120,12 @@ public class Worker extends Observable implements Observer, Runnable
         // Start work checkers 
         synchronized (checkerMutex)
         {
+          LOG.finest("New target: " + curWork.getTarget().toString(16));
           LOG.finest("Starting work checkers.");
           for (int n = 0; n < nThreads; n++)
           {
             CuckooSolve solve = new CuckooSolve(curWork.getData(), Cuckoo.NNODES, (int) maxSols, nThreads);
-            WorkChecker checker = new WorkChecker(client, curWork, n, solve);
+            WorkChecker checker = new WorkChecker(client, curWork, cycleIndex.getAndIncrement(), solve);
             checker.addObserver(Miner.getInstance());
             checkers.add(checker);
 
@@ -142,6 +145,15 @@ public class Worker extends Observable implements Observer, Runnable
             // Swallow
           }
         }
+      }
+      // Wait a bit for some work
+      try
+      {
+        Thread.sleep(500);
+      }
+      catch (InterruptedException e)
+      {
+    	  // quiet
       }
     }
   }
@@ -167,6 +179,7 @@ public class Worker extends Observable implements Observer, Runnable
           w.stop();
           it.remove();
         }
+        cycleIndex.set(0);
       }
 
     }

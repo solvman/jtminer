@@ -42,11 +42,11 @@ public class MerkleTree
     tempTxList.clear();
     if (null != cbtx)
     {
-      tempTxList.add(cbtx.getHex());
+      tempTxList.add(DataUtils.byteArrayToHexString(cbtx.getHex()));
     }
     for (TransactionImpl t : transactions)
     {
-      tempTxList.add(t.getHex());
+      tempTxList.add(DataUtils.byteArrayToHexString(t.getHex()));
     }
 
     List<String> newTxList = reduce(tempTxList);

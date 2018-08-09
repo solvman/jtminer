@@ -25,6 +25,9 @@ package live.thought.jtminer;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import live.thought.jtminer.algo.SHA256d;
 import live.thought.jtminer.data.BlockImpl;
@@ -35,7 +38,13 @@ import live.thought.thought4j.ThoughtClientInterface;
 
 public class Work
 {
-
+  private static final Logger LOG = Logger.getLogger(Work.class.getCanonicalName());
+  static
+  {
+    LOG.setLevel(Level.ALL);
+    for (Handler handler : LOG.getParent().getHandlers())
+      handler.setLevel(Level.ALL);
+  }
   long                        height;
   private byte[]              data;                    // little-endian
   private BigInteger          target;
@@ -52,7 +61,7 @@ public class Work
     coinbaseTransaction = new CoinbaseTransaction(blt);
     block.addCoinbaseTransaction(coinbaseTransaction);
 
-    data = DataUtils.hexStringToByteArray(block.getHex());
+    data = block.getHex();
     BigInteger lBits = new BigInteger(DataUtils.hexStringToByteArray(blt.bits()));
     target = DataUtils.decodeCompactBits(lBits.longValue());    
   }
@@ -73,12 +82,14 @@ public class Work
     }
     try
     {
+      LOG.finest("Submitting: " + sb.toString());
       client.submitBlock(sb.toString());
       retval = true;
     }
     catch (Exception e)
     {
-      System.err.println(e.getMessage());
+    	e.printStackTrace(System.err);
+      
     }
     return retval;
   }

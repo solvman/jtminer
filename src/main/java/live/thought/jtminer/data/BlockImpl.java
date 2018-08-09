@@ -221,20 +221,20 @@ public class BlockImpl implements Hexable
   }
 
   @Override
-  public String getHex()
+  public byte[] getHex()
   {
     byte[] data = new byte[80];
     
     int offset = 0;
-    DataUtils.uint32ToByteArrayBE(version, data, offset);
+    DataUtils.uint32ToByteArrayLE(version, data, offset);
     offset += 4;
     
     byte[] prev = DataUtils.hexStringToByteArray(previousHash);
-    System.arraycopy(DataUtils.reverseBytes(prev), 0, data, offset, prev.length);
+    System.arraycopy(prev, 0, data, offset, prev.length);
     
     String merkle_root = MerkleTree.merkle_tree(getTransactions(), coinbase);
     byte[] merkle_bytes = DataUtils.hexStringToByteArray(merkle_root);
-    System.arraycopy(DataUtils.reverseBytes(merkle_bytes), 0, data, offset, merkle_bytes.length);
+    System.arraycopy(merkle_bytes, 0, data, offset, merkle_bytes.length);
     offset += merkle_bytes.length;
     
     DataUtils.uint32ToByteArrayLE(time, data, offset);
@@ -242,7 +242,7 @@ public class BlockImpl implements Hexable
     byte[] bitsHex = bits.getBytes();
     System.arraycopy(bitsHex, 0, data, offset, bitsHex.length);
     
-    return DataUtils.byteArrayToHexString(data);
+    return data;
   }
   
 }

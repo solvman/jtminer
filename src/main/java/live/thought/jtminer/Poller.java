@@ -68,10 +68,9 @@ public class Poller extends Observable implements Runnable
   public synchronized Work getWork()
   {
     Work retval = null;
-    synchronized (workMutex)
-    {
+
       retval = currentWork;
-    }
+
     return retval;
   }
   
@@ -83,6 +82,7 @@ public class Poller extends Observable implements Runnable
   @Override
   public void run()
   {
+	  LOG.finest("Starting poller.");
     BlockTemplate bl = client.getBlockTemplate();
     String longpollid = bl.longpollid();
     if (null != longpollid)

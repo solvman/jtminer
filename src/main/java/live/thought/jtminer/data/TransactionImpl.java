@@ -205,9 +205,9 @@ public class TransactionImpl implements Hexable
     this.commentTo = commentTo;
   }
 
-  public String getHex()
+  public byte[] getHex()
   {
-    return hex;
+    return DataUtils.hexStringToByteArray(hex);
   }
 
   public void setHex(String hex)

@@ -112,7 +112,7 @@ public class CoinbaseTransaction implements Hexable
   }
 
   @Override
-  public String getHex()
+  public byte[] getHex()
   {
     byte[] cbtx = new byte[256];
     int cbtx_size = 0;
@@ -168,7 +168,7 @@ public class CoinbaseTransaction implements Hexable
     
     // Thought doesn't have any coinbaseaux flags at the moment
     
-    return DataUtils.byteArrayToHexString(cbtx);
+    return cbtx;
   }
   
   

@@ -232,8 +232,9 @@ public class BlockImpl implements Hexable
     byte[] prev = DataUtils.hexStringToByteArray(previousHash);
     System.arraycopy(prev, 0, data, offset, prev.length);
     
-    String merkle_root = MerkleTree.merkle_tree(getTransactions(), coinbase);
-    byte[] merkle_bytes = DataUtils.hexStringToByteArray(merkle_root);
+    MerkleTree mt = new MerkleTree(coinbase, getTransactions());
+    
+    byte[] merkle_bytes = mt.getRoot();
     System.arraycopy(merkle_bytes, 0, data, offset, merkle_bytes.length);
     offset += merkle_bytes.length;
     
@@ -244,5 +245,7 @@ public class BlockImpl implements Hexable
     
     return data;
   }
+  
+  
   
 }

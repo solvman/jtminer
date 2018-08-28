@@ -63,6 +63,8 @@ public class Miner implements Observer
   private long                             lastWorkTime;
   private long                             lastWorkCycles;
   private long                             lastWorkSolutions;
+  private long                             lastWorkNonces;
+  private long                             lastWorkErrors;
 
   private static Miner                     instance;
 
@@ -221,12 +223,16 @@ public class Miner implements Observer
     if (lastWorkTime > 0L)
     {
       long cycles = worker.getCycles() - lastWorkCycles;
+      long nonces = worker.getNonces() - lastWorkNonces;
+      long errors = worker.getErrors() - lastWorkErrors;
       long solutions = worker.getSolutions() - lastWorkSolutions;
       float speed = (float) cycles / Math.max(1, System.currentTimeMillis() - lastWorkTime);
-      LOG.info(String.format("%d solutions, %d cycles, %.2f kilocycles/sec", solutions, cycles, speed));
+      LOG.info(String.format("%d nonces, %d solutions, %d cycles, %.2f kilocycles/sec, %d errors", nonces, solutions, cycles, speed, errors));
     }
     lastWorkTime = System.currentTimeMillis();
     lastWorkCycles = worker.getCycles();
+    lastWorkNonces = worker.getNonces();
+    lastWorkErrors = worker.getErrors();
     lastWorkSolutions = worker.getSolutions();
   }
   

@@ -40,6 +40,7 @@ public class TransactionImpl implements Hexable
   String comment;
   String commentTo;
   String hex;
+  String hash;
 
   public TransactionImpl(Transaction trans)
   {
@@ -58,6 +59,7 @@ public class TransactionImpl implements Hexable
     comment = trans.comment();
     commentTo = trans.commentTo();
     hex = trans.raw().hex();
+    hash = trans.raw().hash();
   }
   
   public TransactionImpl()
@@ -213,5 +215,15 @@ public class TransactionImpl implements Hexable
   public void setHex(String hex)
   {
     this.hex = hex;
+  }
+  
+  public byte[] getHash()
+  {
+    return DataUtils.hexStringToByteArray(hash);
+  }
+
+  public void setHash(String hash)
+  {
+    this.hash = hash;
   }
 }

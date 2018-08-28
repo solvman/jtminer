@@ -25,21 +25,15 @@ public class CuckooSolve
   Cuckoo           graph;
   int              easiness;
   int[]            cuckoo;
-  int[][]          sols;
-  int              nsols;
-  int              maxsols;
   int              nthreads;
 
-  public CuckooSolve(byte[] hdr, int en, int ms, int nt)
+  public CuckooSolve(byte[] hdr, int en, int nt)
   {
     graph = new Cuckoo(hdr);
     easiness = en;
-    sols = new int[ms][Cuckoo.PROOFSIZE];
     cuckoo = new int[1 + (int) Cuckoo.NNODES];
     assert cuckoo != null;
-    nsols = 0;
     nthreads = nt;
-    maxsols = ms;
   }
 
   public int path(int u, int[] us)
@@ -63,8 +57,10 @@ public class CuckooSolve
     return nu;
   }
 
-  public synchronized void solution(int[] us, int nu, int[] vs, int nv)
+  public synchronized int[] solution(int[] us, int nu, int[] vs, int nv)
   {
+    int[] retval = null;
+    int[] sol = new int[Cuckoo.PROOFSIZE];
     Set<Edge> cycle = new HashSet<Edge>();
     int n;
     cycle.add(new Edge(us[0], vs[0] - Cuckoo.NEDGES));
@@ -77,24 +73,22 @@ public class CuckooSolve
       Edge e = graph.sipedge(nonce);
       if (cycle.contains(e))
       {
-        sols[nsols][n++] = nonce;
+        sol[n++] = nonce;
         cycle.remove(e);
       }
     }
     if (n == Cuckoo.PROOFSIZE)
-      nsols++;
+    {
+      retval = sol;
+    }
     //else
     //  System.out.println("Only recovered " + n + " nonces");
+    return retval;
   }
 
   public int getEasiness()
   {
     return easiness;
-  }
-
-  public void setEasiness(int easiness)
-  {
-    this.easiness = easiness;
   }
 
   public int[] getCuckoo()
@@ -111,21 +105,4 @@ public class CuckooSolve
   {
     return graph;
   }
-
-  public int[][] getSols()
-  {
-    return sols;
-  }
-
-  public int getNsols()
-  {
-    return nsols;
-  }
-
-  public int getMaxSols()
-  {
-    return maxsols;
-  }
-  
-  
 }

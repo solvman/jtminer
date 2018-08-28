@@ -23,7 +23,6 @@
 package live.thought.jtminer;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,6 +33,7 @@ import java.util.logging.Logger;
 
 import live.thought.jtminer.algo.Cuckoo;
 import live.thought.jtminer.algo.CuckooSolve;
+import live.thought.jtminer.data.BlockImpl;
 import live.thought.thought4j.ThoughtClientInterface;
 
 public class Worker extends Observable implements Observer, Runnable
@@ -51,11 +51,10 @@ public class Worker extends Observable implements Observer, Runnable
 
   private volatile Work          curWork      = null;
   private AtomicLong             cycles       = new AtomicLong(0L);
+  private AtomicLong             nonces       = new AtomicLong(0L);
+  private AtomicLong             errors       = new AtomicLong(0L);
   private AtomicLong             solutions    = new AtomicLong(0L);
   private AtomicInteger          cycleIndex   = new AtomicInteger(0);
-
-  private ArrayList<WorkChecker> checkers     = new ArrayList<WorkChecker>();
-  private int[]                  checkerMutex = new int[0];
 
   public Worker(ThoughtClientInterface client, long pauseMillis)
   {
@@ -78,6 +77,26 @@ public class Worker extends Observable implements Observer, Runnable
   public void incrementCycles()
   {
     cycles.incrementAndGet();
+  }
+
+  public long getNonces()
+  {
+    return nonces.get();
+  }
+
+  public void incrementNonces()
+  {
+    nonces.incrementAndGet();
+  }
+
+  public long getErrors()
+  {
+    return errors.get();
+  }
+
+  public void incrementErrors()
+  {
+    errors.incrementAndGet();
   }
 
   public long getSolutions()
@@ -104,36 +123,29 @@ public class Worker extends Observable implements Observer, Runnable
   {
     running = true;
     LOG.finest("Starting worker.");
-    
-    long maxMem = Runtime.getRuntime().maxMemory();
-    long useful = (long)(0.1 * maxMem);
-    long perThread = useful / nThreads;
-    long need = 4 * Cuckoo.PROOFSIZE;
-    long maxSols = Math.min(perThread / need, 65535);
-    LOG.finest("Using " + maxSols + " solutions per thread instance.");
 
     while (running)
     {
       ArrayList<Thread> threads = new ArrayList<Thread>(nThreads);
       if (null != curWork)
       {
-        // Start work checkers 
-        synchronized (checkerMutex)
+        LOG.finest("Target: " + curWork.getTarget().toString(16));
+        LOG.finest("Starting work checkers.");
+        for (int n = 0; n < nThreads; n++)
         {
-          LOG.finest("New target: " + curWork.getTarget().toString(16));
-          LOG.finest("Starting work checkers.");
-          for (int n = 0; n < nThreads; n++)
-          {
-            CuckooSolve solve = new CuckooSolve(curWork.getData(), Cuckoo.NNODES, (int) maxSols, nThreads);
-            WorkChecker checker = new WorkChecker(client, curWork, cycleIndex.getAndIncrement(), solve);
-            checker.addObserver(Miner.getInstance());
-            checkers.add(checker);
+          BlockImpl block = curWork.getBlock();
+          int blockNonce = cycleIndex.getAndIncrement();
+          block.setNonce(blockNonce);
+          CuckooSolve solve = new CuckooSolve(block.getHeader(), Cuckoo.NNODES, nThreads);
+          WorkChecker checker = new WorkChecker(client, curWork, blockNonce, solve);
+          checker.addObserver(Miner.getInstance());
+          Miner.getInstance().getPoller().addObserver(checker);
 
-            Thread t = new Thread(checker);
-            threads.add(t);
-            t.start();
-          }
+          Thread t = new Thread(checker);
+          threads.add(t);
+          t.start();
         }
+
         for (Thread t : threads)
         {
           try
@@ -149,11 +161,11 @@ public class Worker extends Observable implements Observer, Runnable
       // Wait a bit for some work
       try
       {
-        Thread.sleep(500);
+        Thread.sleep(5000);
       }
       catch (InterruptedException e)
       {
-    	  // quiet
+        // quiet
       }
     }
   }
@@ -164,24 +176,13 @@ public class Worker extends Observable implements Observer, Runnable
     Notification n = (Notification) arg;
     if (n == Notification.NEW_WORK)
     {
-      synchronized (checkerMutex)
+      LOG.finest("Getting new work.");
+      curWork = Miner.getInstance().getPoller().getWork();
+      if (null != curWork)
       {
-        LOG.finest("Getting new work.");
-        curWork = Miner.getInstance().getPoller().getWork();
-        if (null != curWork)
-        {
-          LOG.finest("New work retrieved.");
-        }
-        LOG.finest("Stopping checkers on new work notification.");
-        for (Iterator<WorkChecker> it = checkers.iterator(); it.hasNext();)
-        {
-          WorkChecker w = it.next();
-          w.stop();
-          it.remove();
-        }
-        cycleIndex.set(0);
+        LOG.finest("New work retrieved.");
       }
-
+      cycleIndex.set(0);
     }
   }
 

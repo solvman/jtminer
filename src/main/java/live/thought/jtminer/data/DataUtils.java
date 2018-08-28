@@ -29,6 +29,7 @@ import java.math.BigInteger;
 
 public class DataUtils
 {
+
   public static String byteArrayToHexString(byte[] b)
   {
     StringBuilder sb = new StringBuilder(80);
@@ -143,11 +144,38 @@ public class DataUtils
       bytes[6] = (byte) ((compact >> 0) & 0xFF);
     return decodeMPI(bytes);
   }
-  
-  public static byte[] reverseBytes(byte[] bytes) {
+
+  public static byte[] reverseBytes(byte[] bytes)
+  {
     byte[] buf = new byte[bytes.length];
     for (int i = 0; i < bytes.length; i++)
-        buf[i] = bytes[bytes.length - 1 - i];
+      buf[i] = bytes[bytes.length - 1 - i];
     return buf;
-}
+  }
+
+ public static byte[] encodeCompact(long height)
+ {
+   byte[] retval = null;
+   if (height <= 252)
+   {
+     retval = new byte[1];
+     retval[0] = (byte) (height & 0xff);
+   }
+   else if (height < 0xffff)
+   {
+     retval = new byte[3];
+     retval[0] = (byte) 0xfd;
+     retval[1] = (byte) (height & 0xff);
+     retval[2] = (byte) ((height >> 8) & 0xff);
+   }
+   else if (height < 0xffffffff)
+   {
+     retval = new byte[5];
+     retval[0] = (byte) 0xf3;
+     retval[1] = (byte) (height & 0xff);
+     retval[2] = (byte) ((height >> 8) & 0xff);
+     retval[2] = (byte) ((height >> 16) & 0xff);
+   }
+   return retval;
+ }
 }

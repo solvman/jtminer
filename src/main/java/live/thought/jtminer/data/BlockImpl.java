@@ -44,6 +44,7 @@ public class BlockImpl implements Hexable
   protected double difficulty;
   protected String previousHash;
   protected String chainwork;
+  protected int[] cuckooSolution;
   
   protected CoinbaseTransaction coinbase;
 
@@ -215,13 +216,27 @@ public class BlockImpl implements Hexable
     return block;
   }
   
-  public void addCoinbaseTransaction(CoinbaseTransaction trans)
+  public void setCoinbaseTransaction(CoinbaseTransaction trans)
   {
-    coinbase = trans;
+    coinbase = trans; 
   }
 
-  @Override
-  public byte[] getHex()
+  public CoinbaseTransaction getCoinbaseTransaction()
+  {
+    return coinbase;
+  }
+  
+  public int[] getCuckooSolution()
+  {
+    return cuckooSolution;
+  }
+
+  public void setCuckooSolution(int[] cuckooSolution)
+  {
+    this.cuckooSolution = cuckooSolution;
+  }
+
+  public byte[] getHeader()
   {
     byte[] data = new byte[80];
     
@@ -230,19 +245,60 @@ public class BlockImpl implements Hexable
     offset += 4;
     
     byte[] prev = DataUtils.hexStringToByteArray(previousHash);
-    System.arraycopy(prev, 0, data, offset, prev.length);
+    System.arraycopy(DataUtils.reverseBytes(prev), 0, data, offset, prev.length);
+    offset += prev.length;
     
-    String merkle_root = MerkleTree.merkle_tree(getTransactions(), coinbase);
-    byte[] merkle_bytes = DataUtils.hexStringToByteArray(merkle_root);
+     MerkleTree mt = new MerkleTree(coinbase, getTransactions());
+    
+    byte[] merkle_bytes = mt.getRoot();
     System.arraycopy(merkle_bytes, 0, data, offset, merkle_bytes.length);
     offset += merkle_bytes.length;
     
     DataUtils.uint32ToByteArrayLE(time, data, offset);
     offset += 4;
-    byte[] bitsHex = bits.getBytes();
+    byte[] bitsHex = DataUtils.reverseBytes(DataUtils.hexStringToByteArray(bits));
     System.arraycopy(bitsHex, 0, data, offset, bitsHex.length);
+    
+    if (nonce != 0)
+    {
+      data[79] = (byte) (nonce >> 0);
+      data[78] = (byte) (nonce >> 8);
+      data[77] = (byte) (nonce >> 16);
+      data[76] = (byte) (nonce >> 24);
+    }
     
     return data;
   }
+  
+  @Override
+  public byte[] getHex()
+  {
+    byte[] header = getHeader();
+    
+    ByteArray bytes = new ByteArray(header);
+    //
+    // Cuckoo nonces
+    byte[] tmp = new byte[4 * 42];
+    int off = 0;
+    for (int i = 0; i < 42; i++)
+    {
+      byte[] cnon = DataUtils.hexStringToByteArray(String.format("%08X", Integer.reverseBytes(cuckooSolution[i])));
+      //byte[] cnon = DataUtils.hexStringToByteArray(String.format("%08X", cuckooSolution[i]));
+      System.arraycopy(cnon, 0, tmp, off, 4);
+      off += 4;
+    }
+    bytes.append(tmp);
+    
+    //
+    // Transactions 
+    // TODO: Make it do all transactions - just doing coinbase for testing.
+    bytes.append((byte)(transactions.size()  + 1));
+    bytes.append(coinbase.getHex());
+    for (TransactionImpl t : transactions)
+      bytes.append(t.getHex());
+    
+    return bytes.get();
+  }
+
   
 }

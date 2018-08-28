@@ -21,26 +21,23 @@ package live.thought.jtminer.data;
 
 import java.util.Arrays;
 
-import live.thought.jtminer.Miner;
-import live.thought.thought4j.ThoughtClientInterface.BlockTemplate;
-
 public class CoinbaseTransaction implements Hexable
 {
-  protected int version = 1;
-  protected int inCounter = 1;
-  protected long height;
-  protected int outCounter = 1;
-  protected long value;
+  protected int    version    = 1;
+  protected int    inCounter  = 1;
+  protected long   height;
+  protected int    outCounter = 1;
+  protected long   value;
   protected String address;
-  protected int lockTime = 0;
-   
-  public CoinbaseTransaction(BlockTemplate blt)
+  protected int    lockTime   = 0;
+
+  public CoinbaseTransaction(long height, long value, String coinbaseAddress)
   {
-    height = blt.height();
-    value = blt.coinbasevalue();
-    address = Miner.getInstance().getCoinbaseAddress();
+    this.height = height;
+    this.value = value;
+    this.address = coinbaseAddress;
   }
-   
+
   public int getVersion()
   {
     return version;
@@ -114,63 +111,50 @@ public class CoinbaseTransaction implements Hexable
   @Override
   public byte[] getHex()
   {
-    byte[] cbtx = new byte[256];
-    int cbtx_size = 0;
-    // Encode the version
-    byte[] ver = Integer.toHexString(Integer.reverseBytes(version)).getBytes();
-    System.arraycopy(ver, 0, cbtx, cbtx_size, 4);
-    cbtx_size += 4;
-    // tx_in counter
-    cbtx[cbtx_size] = (byte)0x01;
-    cbtx_size += 1;
-    // previous tx hash
-    Arrays.fill(cbtx, cbtx_size, cbtx_size + 32, (byte)0x00);
-    // BIP-34 height
-    cbtx_size = 43;
-    for (long n = height; n != 0; n >>= 8)
-      cbtx[cbtx_size++] = (byte) (n & 0xff);
-    /* If the last byte pushed is >= 0x80, then we need to add
-       another zero byte to signal that the block height is a
-       positive number.  */
-    if ((cbtx[cbtx_size - 1] & 0x80) != 0)
-      cbtx[cbtx_size++] = 0;
-    // Scriptsig length
-    cbtx[42] = (byte) (cbtx_size - 43);
-    cbtx[41] = (byte) (cbtx_size - 42);
-    // Sequence
-    byte[] seq = Integer.toHexString(Integer.reverseBytes(0xffffffff)).getBytes();
-    System.arraycopy(seq, 0, cbtx, cbtx_size, 4);
-    cbtx_size += 4;
-    // tx_out counter
-    cbtx[cbtx_size] = (byte)0x01;
-    cbtx_size += 1;
-    // value
-    byte[] val = Integer.toHexString(Integer.reverseBytes((int)value)).getBytes();
-    System.arraycopy(val, 0, cbtx, cbtx_size, 4);
-    cbtx_size += 4;
-    val = Integer.toHexString(Integer.reverseBytes((int)value >> 32)).getBytes();
-    System.arraycopy(val, 0, cbtx, cbtx_size, 4);
-    cbtx_size += 4;
-    // Address size
-    byte[] len = Integer.toHexString(Integer.reverseBytes(address.length())).getBytes();
-    System.arraycopy(len, 0, cbtx, cbtx_size, 4);
-    cbtx_size += 4;
-    // Payment Address
-    System.arraycopy(address.getBytes(), 0, cbtx, cbtx_size, address.length());
-    cbtx_size += address.length();
-    // Lock time
-    byte[] loc = {0x00, 0x00, 0x00, 0x00};
+    ByteArray cbtx = new ByteArray();
     
-    System.arraycopy(loc, 0, cbtx, cbtx_size, 4);
-    cbtx_size += 4;
+    cbtx.append(DataUtils.hexStringToByteArray(String.format("%08X", Integer.reverseBytes(version))));
+    cbtx.append((byte) 0x01);
+    
+    byte[] empty = new byte[32];
+    cbtx.append(empty);
+    
+    byte[] seq = DataUtils.hexStringToByteArray("ffffffff");
+    cbtx.append(seq);
+    
+    byte[] heightCompact = DataUtils.encodeCompact(height);
+    int scriptSize = heightCompact.length + 1;
+    // BIP-34 height
+    cbtx.append(DataUtils.encodeCompact(scriptSize));
+    cbtx.append((byte) 0x03);
+    cbtx.append(heightCompact);
+    
+    
+    // Sequence
+    seq = DataUtils.hexStringToByteArray("00000000");
+    cbtx.append(seq);
+    // tx_out counter
+    cbtx.append((byte) 0x01);
+    
+    byte[] val = DataUtils.hexStringToByteArray(Long.toHexString(Long.reverseBytes(value)));
+    cbtx.append(val);
+    
+    // Address size
+    byte[] len = DataUtils.hexStringToByteArray(Integer.toHexString(Integer.reverseBytes(address.length())));
+    
+    cbtx.append(len);
+    // Payment Address
+    cbtx.append(address.getBytes());
+    
+    // Lock time
+    byte[] loc = { 0x00, 0x00, 0x00, 0x00 };
+    cbtx.append(loc);
+    
     
     // Not supporting coinbase signature yet
-    
+
     // Thought doesn't have any coinbaseaux flags at the moment
     
-    return cbtx;
+    return cbtx.get();
   }
-  
-  
-  
 }

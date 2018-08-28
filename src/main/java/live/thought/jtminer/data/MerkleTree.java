@@ -2,6 +2,10 @@
  * jtminer Java mining software for the Thought Network
  * 
  * Copyright (c) 2018, Thought Network LLC
+ * 
+ * Contains code from bitcoinj:
+ *   Copyright 2011 Google Inc.
+ *   Copyright 2014 Andreas Schildbach
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2, as 
@@ -19,107 +23,84 @@
  */
 package live.thought.jtminer.data;
 
-import java.security.MessageDigest;
+
 import java.util.ArrayList;
 import java.util.List;
 
+import live.thought.jtminer.algo.SHA256d;
+
+//The Merkle root is based on a tree of hashes calculated from the transactions:
+//
+//     root
+//      / \
+//   A      B
+//  / \    / \
+// t1 t2 t3 t4
+//
+// The tree is represented as a list: t1,t2,t3,t4,A,B,root where each
+// entry is a hash.
+//
+// The hashing algorithm is double SHA-256. The leaves are a hash of the serialized contents of the transaction.
+// The interior nodes are hashes of the concenation of the two child hashes.
+//
+// This structure allows the creation of proof that a transaction was included into a block without having to
+// provide the full block contents. Instead, you can provide only a Merkle branch. For example to prove tx2 was
+// in a block you can just provide tx2, the hash(tx1) and B. Now the other party has everything they need to
+// derive the root, which can be checked against the block header. These proofs aren't used right now but
+// will be helpful later when we want to download partial block contents.
+//
+// Note that if the number of transactions is not even the last tx is repeated to make it so (see
+// tx3 above). A tree with 5 transactions would look like this:
+//
+//         root
+//        /     \
+//       1        5
+//     /   \     / \
+//    2     3    4  4
+//  / \   / \   / \
+// t1 t2 t3 t4 t5 t5
 public class MerkleTree
 {
-  protected static List<String> tempTxList = new ArrayList<String>();
-
-  protected MerkleTree()
-  {
-
-  }
-
-  /**
-   * execute merkle_tree and set root.
-   */
-  public static String merkle_tree(List<TransactionImpl> transactions, CoinbaseTransaction cbtx)
-  {
-    String retval = null;
-
-    tempTxList.clear();
-    if (null != cbtx)
+    private SHA256d hasher;
+    ArrayList<byte[]> tree = new ArrayList<>();
+    
+    public MerkleTree(CoinbaseTransaction cbtx, List<TransactionImpl> transactions)
     {
-      tempTxList.add(DataUtils.byteArrayToHexString(cbtx.getHex()));
-    }
-    for (TransactionImpl t : transactions)
-    {
-      tempTxList.add(DataUtils.byteArrayToHexString(t.getHex()));
-    }
-
-    List<String> newTxList = reduce(tempTxList);
-    while (newTxList.size() != 1)
-    {
-      newTxList = reduce(newTxList);
-    }
-
-    retval = newTxList.get(0);
-    return retval;
-  }
-
-  /**
-   * return Node Hash List.
-   * 
-   * @param tempTxList
-   * @return
-   */
-  protected static List<String> reduce(List<String> tempTxList)
-  {
-
-    List<String> newTxList = new ArrayList<String>();
-    int index = 0;
-    while (index < tempTxList.size())
-    {
-      // left
-      String left = tempTxList.get(index);
-      index++;
-
-      // right
-      String right = "";
-      if (index != tempTxList.size())
-      {
-        right = tempTxList.get(index);
+      hasher = new SHA256d(32); 
+      byte[] data = new byte[64];
+      
+      hasher.update(cbtx.getHex());
+      tree.add(DataUtils.reverseBytes(hasher.doubleDigest()));
+      
+      for (TransactionImpl t : transactions) {
+        hasher.update(t.getHex());
+        tree.add(DataUtils.reverseBytes(hasher.doubleDigest()));
       }
-
-      // sha2 hex value
-      String sha2HexValue = getSHA2HexValue(left + right);
-      newTxList.add(sha2HexValue);
-      index++;
-
-    }
-
-    return newTxList;
-  }
-
-  /**
-   * Return hex string
-   * 
-   * @param str
-   * @return
-   */
-  protected static String getSHA2HexValue(String str)
-  {
-    String retval = "";
-    byte[] cipher_byte;
-    try
-    {
-      MessageDigest md = MessageDigest.getInstance("SHA-256");
-      md.update(str.getBytes());
-      cipher_byte = md.digest();
-      StringBuilder sb = new StringBuilder(2 * cipher_byte.length);
-      for (byte b : cipher_byte)
-      {
-        sb.append(String.format("%02x", b & 0xff));
+      int levelOffset = 0; // Offset in the list where the currently processed level starts.
+      int treeSize = transactions.size() + 1;
+      // Step through each level, stopping when we reach the root (levelSize == 1).
+      for (int levelSize = treeSize; levelSize > 1; levelSize = (levelSize + 1) / 2) {
+          // For each pair of nodes on that level:
+          for (int left = 0; left < levelSize; left += 2) {
+              // The right hand node can be the same as the left hand, in the case where we don't have enough
+              // transactions.
+              int right = Math.min(left + 1, levelSize - 1);
+              byte[] leftBytes = DataUtils.reverseBytes(tree.get(levelOffset + left));
+              byte[] rightBytes = DataUtils.reverseBytes(tree.get(levelOffset + right));
+              System.arraycopy(leftBytes, 0, data, 0, 32);
+              System.arraycopy(rightBytes, 0, data, 32, 32);
+              hasher.update(data);
+              tree.add(DataUtils.reverseBytes(hasher.doubleDigest()));
+          }
+          // Move to the next level.
+          levelOffset += levelSize;
       }
-      retval = sb.toString();
     }
-    catch (Exception e)
+    
+    
+    public byte[] getRoot()
     {
-      e.printStackTrace();
+        return tree.get(tree.size() - 1);
     }
-
-    return retval;
-  }
+    
 }

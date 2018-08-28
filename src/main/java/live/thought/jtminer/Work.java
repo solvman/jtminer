@@ -58,10 +58,10 @@ public class Work
   {
     height = blt.height();
     block = new BlockImpl(blt);
-    coinbaseTransaction = new CoinbaseTransaction(blt);
-    block.addCoinbaseTransaction(coinbaseTransaction);
+    coinbaseTransaction = new CoinbaseTransaction(blt.height(), blt.coinbasevalue(), Miner.getInstance().getCoinbaseAddress());
+    block.setCoinbaseTransaction(coinbaseTransaction);
 
-    data = block.getHex();
+    data = block.getHeader();
     BigInteger lBits = new BigInteger(DataUtils.hexStringToByteArray(blt.bits()));
     target = DataUtils.decodeCompactBits(lBits.longValue());    
   }
@@ -69,27 +69,18 @@ public class Work
   public boolean submit(ThoughtClientInterface client, int nonce, int[] solution) throws IOException
   {
     boolean retval = false;
-    byte[] d = data.clone();
-    d[79] = (byte) (nonce >> 0);
-    d[78] = (byte) (nonce >> 8);
-    d[77] = (byte) (nonce >> 16);
-    d[76] = (byte) (nonce >> 24);
-    String sData = DataUtils.byteArrayToHexString(d);
-    StringBuilder sb = new StringBuilder(sData);
-    for (int n = 0; n < solution.length; n++)
-    {
-      sb.append(Integer.toHexString(Integer.reverseBytes(solution[n])));
-    }
+   
+    block.setNonce(nonce);
+    block.setCuckooSolution(solution);
+    String blockStr = DataUtils.byteArrayToHexString(block.getHex());
     try
     {
-      LOG.finest("Submitting: " + sb.toString());
-      client.submitBlock(sb.toString());
-      retval = true;
+      LOG.finest("Submitting: " + blockStr);
+      retval = client.submitBlock(blockStr);
     }
     catch (Exception e)
     {
-    	e.printStackTrace(System.err);
-      
+      LOG.severe(e.getMessage());
     }
     return retval;
   }
@@ -100,9 +91,10 @@ public class Work
     StringBuilder sb = new StringBuilder();
     for (int n = 0; n < solution.length; n++)
     {
-      sb.append(String.format("%08X", Integer.reverseBytes(solution[n])));  
+      sb.append(String.format("%08X", Integer.reverseBytes(solution[n]))); 
+      //sb.append(String.format("%08X", solution[n]));  
     }
-
+    hasher.update(DataUtils.hexStringToByteArray(sb.toString()));
     byte[] hash = hasher.doubleDigest();
     BigInteger hashValue = new BigInteger(hash);
     
@@ -121,6 +113,11 @@ public class Work
   public byte[] getData()
   {
     return data;
+  }
+  
+  public BlockImpl getBlock()
+  {
+    return block;
   }
 
   public BigInteger getTarget()

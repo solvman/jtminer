@@ -300,5 +300,4 @@ public class BlockImpl implements Hexable
     return bytes.get();
   }
 
-  
 }

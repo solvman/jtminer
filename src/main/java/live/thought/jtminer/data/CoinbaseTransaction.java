@@ -19,8 +19,6 @@
  */
 package live.thought.jtminer.data;
 
-import java.util.Arrays;
-
 public class CoinbaseTransaction implements Hexable
 {
   protected int    version    = 1;
@@ -122,29 +120,40 @@ public class CoinbaseTransaction implements Hexable
     byte[] seq = DataUtils.hexStringToByteArray("ffffffff");
     cbtx.append(seq);
     
-    byte[] heightCompact = DataUtils.encodeCompact(height);
-    int scriptSize = heightCompact.length + 1;
+    String heightHex = Long.toHexString(height);
+    byte[] heightBytes = DataUtils.reverseBytes(DataUtils.hexStringToByteArray(heightHex));
+    int trailingZeroes = 0;
+    if (heightBytes[heightBytes.length - 1] < 0x00)
+    {
+      trailingZeroes = 1;
+    }
+    int scriptSize = heightBytes.length + trailingZeroes + 1;
     // BIP-34 height
-    cbtx.append(DataUtils.encodeCompact(scriptSize));
-    cbtx.append((byte) 0x03);
-    cbtx.append(heightCompact);
+    cbtx.append(DataUtils.hexStringToByteArray(String.format("%02X", scriptSize)));
+    cbtx.append(DataUtils.hexStringToByteArray(String.format("%02X", heightBytes.length + trailingZeroes)));  
+    cbtx.append(heightBytes);
+    for (int x = 0; x < trailingZeroes; x++)
+    {
+      cbtx.append(new Byte((byte) 0x00));
+    }
     
     
     // Sequence
-    seq = DataUtils.hexStringToByteArray("00000000");
+    seq = DataUtils.hexStringToByteArray("ffffffff");
     cbtx.append(seq);
     // tx_out counter
     cbtx.append((byte) 0x01);
     
-    byte[] val = DataUtils.hexStringToByteArray(Long.toHexString(Long.reverseBytes(value)));
+    byte[] val = DataUtils.hexStringToByteArray(String.format("%016X", Long.reverseBytes(value)));
     cbtx.append(val);
     
     // Address size
-    byte[] len = DataUtils.hexStringToByteArray(Integer.toHexString(Integer.reverseBytes(address.length())));
+    byte[] addr = DataUtils.addressToScript(address);
+    byte[] len = DataUtils.encodeCompact(addr.length);
     
     cbtx.append(len);
     // Payment Address
-    cbtx.append(address.getBytes());
+    cbtx.append(addr);
     
     // Lock time
     byte[] loc = { 0x00, 0x00, 0x00, 0x00 };

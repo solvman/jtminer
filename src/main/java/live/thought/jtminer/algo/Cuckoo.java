@@ -22,9 +22,6 @@
  */
 package live.thought.jtminer.algo;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-
 class Edge
 {
   int u;
@@ -56,9 +53,9 @@ public class Cuckoo
   public static final int NNODES    = 1 << NODEBITS;
   public static final int EDGEMASK  = NEDGES - 1;
   public static final int PROOFSIZE = 42;
-  public static final boolean ALTSIPHASH = false;
-  
+
   long                    k[]       = new long[4];
+  SHA256d                 hasher    = new SHA256d(32);
 
   public static long u8(byte b)
   {
@@ -67,52 +64,33 @@ public class Cuckoo
 
   public static long u8to64(byte[] p, int i)
   {
-    return u8(p[i]) | 
-           u8(p[i + 1]) << 8  | 
-           u8(p[i + 2]) << 16 | 
-           u8(p[i + 3]) << 24 | 
-           u8(p[i + 4]) << 32 | 
-           u8(p[i + 5]) << 40 | 
-           u8(p[i + 6]) << 48 | 
-           u8(p[i + 7]) << 56;
+    return u8(p[i]) | u8(p[i + 1]) << 8 | u8(p[i + 2]) << 16 | u8(p[i + 3]) << 24 | u8(p[i + 4]) << 32 | u8(p[i + 5]) << 40
+        | u8(p[i + 6]) << 48 | u8(p[i + 7]) << 56;
   }
 
   public Cuckoo(byte[] header)
   {
     byte[] hdrkey;
-    try
-    {
-      hdrkey = MessageDigest.getInstance("SHA-256").digest(header);
-      System.out.println(String.format("Hash digits: %x, %x",  hdrkey[0], hdrkey[1]));
+
+      hasher.update(header);
+      hdrkey = hasher.digest();
+      
       k[0] = u8to64(hdrkey, 0);
       k[1] = u8to64(hdrkey, 8);
       k[2] = u8to64(hdrkey, 16);
       k[3] = u8to64(hdrkey, 24);
-    }
-    catch (NoSuchAlgorithmException e)
-    {
-      System.out.println(e);
-      System.exit(1);
-    }
+
   }
 
   public long siphash24(int nonce)
   {
     long v0, v1, v2, v3;
-    if (ALTSIPHASH)
-    {
-      v0 = k[0];
-      v1 = k[1]; 
-      v2 = k[2]; 
-      v3 = k[3] ^ nonce;
-    }
-    else
-    {
-      v0 = k[0] ^ 0x736f6d6570736575L;
-      v1 = k[1] ^ 0x646f72616e646f6dL; 
-      v2 = k[0] ^ 0x6c7967656e657261L; 
-      v3 = k[1] ^ 0x7465646279746573L ^ nonce;
-    }
+
+    v0 = k[0];
+    v1 = k[1];
+    v2 = k[2];
+    v3 = k[3] ^ nonce;
+
     v0 += v1;
     v2 += v3;
     v1 = (v1 << 13) | v1 >>> 51;
@@ -267,5 +245,4 @@ public class Cuckoo
     return n == 0;
   }
 
-  
 }

@@ -26,8 +26,6 @@ import java.io.IOException;
 import java.security.AccessControlException;
 import java.util.Observable;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Handler;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import live.thought.thought4j.ThoughtClientInterface;
@@ -36,16 +34,8 @@ import live.thought.thought4j.ThoughtClientInterface.BlockTemplate;
 public class Poller extends Observable implements Runnable
 {
   private static final Logger      LOG       = Logger.getLogger(Poller.class.getCanonicalName());
-  static
-  {
-    LOG.setLevel(Level.ALL);
-    for (Handler handler : LOG.getParent().getHandlers())
-      handler.setLevel(Level.ALL);
-  }
-  
-  
-  protected long                   retryPause = 10000;
 
+  protected long                   retryPause = 10000;
   protected ThoughtClientInterface client;
 
   protected AtomicBoolean          moreElectricity = new AtomicBoolean(false);
@@ -104,6 +94,7 @@ public class Poller extends Observable implements Runnable
         try
         {
           bl = client.getBlockTemplate(longpollid);
+          longpollid = bl.longpollid();
           if (bl.height() > currentHeight)
           {
             setChanged();
@@ -142,7 +133,6 @@ public class Poller extends Observable implements Runnable
           else
           {
             notifyObservers(Notification.COMMUNICATION_ERROR);
-            e.printStackTrace();
           }
           try
           {

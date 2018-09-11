@@ -8,6 +8,9 @@
  * 
  * Contains code from bitcoinj-minimal
  * Copyright 2011 Google Inc.
+ * 
+ * Contains code from Nayuki's Bitcoin cryptography library
+ * Copyright © 2018 Project Nayuki. (MIT License)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2, as 
@@ -25,10 +28,17 @@
  */
 package live.thought.jtminer.data;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigInteger;
+import java.util.Arrays;
+
+import live.thought.jtminer.algo.SHA256d;
 
 public class DataUtils
 {
+  
+  private static SHA256d hasher = new SHA256d();
 
   public static String byteArrayToHexString(byte[] b)
   {
@@ -41,10 +51,20 @@ public class DataUtils
   public static byte[] hexStringToByteArray(String s)
   {
     int len = s.length();
+    String source = null;
+    if (len % 2 != 0)
+    {
+      source = "0" + s;
+      len++;
+    }
+    else
+    {
+      source = s;
+    }
     byte[] data = new byte[len / 2];
     for (int i = 0; i < len; i += 2)
     {
-      data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4) + Character.digit(s.charAt(i + 1), 16));
+      data[i / 2] = (byte) ((Character.digit(source.charAt(i), 16) << 4) + Character.digit(source.charAt(i + 1), 16));
     }
     return data;
   }
@@ -174,8 +194,122 @@ public class DataUtils
      retval[0] = (byte) 0xf3;
      retval[1] = (byte) (height & 0xff);
      retval[2] = (byte) ((height >> 8) & 0xff);
-     retval[2] = (byte) ((height >> 16) & 0xff);
+     retval[3] = (byte) ((height >> 16) & 0xff);
+     retval[4] = (byte) ((height >> 24) & 0xff);
    }
    return retval;
  }
+ 
+//Adds the checksum and converts to Base58Check. Note that the caller needs to prepend the version byte(s).
+ public static String bytesToBase58(byte[] data) {
+     return rawBytesToBase58(addCheckHash(data));
+ }
+ 
+ 
+ // Directly converts to Base58Check without adding a checksum.
+ static String rawBytesToBase58(byte[] data) {
+     // Convert to base-58 string
+     StringBuilder sb = new StringBuilder();
+     BigInteger num = new BigInteger(1, data);
+     while (num.signum() != 0) {
+         BigInteger[] quotrem = num.divideAndRemainder(ALPHABET_SIZE);
+         sb.append(ALPHABET.charAt(quotrem[1].intValue()));
+         num = quotrem[0];
+     }
+     
+     // Add '1' characters for leading 0-value bytes
+     for (int i = 0; i < data.length && data[i] == 0; i++)
+         sb.append(ALPHABET.charAt(0));
+     return sb.reverse().toString();
+ }
+ 
+ 
+ // Returns a new byte array by concatenating the given array with its checksum.
+ static byte[] addCheckHash(byte[] data) {
+     try {
+         hasher.update(data);
+         byte[] hash = Arrays.copyOf(hasher.doubleDigest(), 4);
+         ByteArrayOutputStream buf = new ByteArrayOutputStream();
+         buf.write(data);
+         buf.write(hash);
+         return buf.toByteArray();
+     } catch (IOException e) {
+         throw new AssertionError(e);
+     }
+ }
+ 
+ 
+ // Converts the given Base58Check string to a byte array, verifies the checksum, and removes the checksum to return the payload.
+ // The caller is responsible for handling the version byte(s).
+ public static byte[] base58ToBytes(String s) {
+     byte[] concat = base58ToRawBytes(s);
+     byte[] data = Arrays.copyOf(concat, concat.length - 4);
+     byte[] hash = Arrays.copyOfRange(concat, concat.length - 4, concat.length);
+     hasher.update(data);
+     byte[] rehash = Arrays.copyOf(hasher.doubleDigest(), 4);
+     if (!Arrays.equals(rehash, hash))
+         throw new IllegalArgumentException("Checksum mismatch");
+     return data;
+ }
+ 
+ 
+ // Converts the given Base58Check string to a byte array, without checking or removing the trailing 4-byte checksum.
+ protected static byte[] base58ToRawBytes(String s) {
+     // Parse base-58 string
+     BigInteger num = BigInteger.ZERO;
+     for (int i = 0; i < s.length(); i++) {
+         num = num.multiply(ALPHABET_SIZE);
+         int digit = ALPHABET.indexOf(s.charAt(i));
+         if (digit == -1)
+             throw new IllegalArgumentException("Invalid character for Base58Check");
+         num = num.add(BigInteger.valueOf(digit));
+     }
+     
+     // Strip possible leading zero due to mandatory sign bit
+     byte[] b = num.toByteArray();
+     if (b[0] == 0)
+         b = Arrays.copyOfRange(b, 1, b.length);
+     
+     try {
+         // Convert leading '1' characters to leading 0-value bytes
+         ByteArrayOutputStream buf = new ByteArrayOutputStream();
+         for (int i = 0; i < s.length() && s.charAt(i) == ALPHABET.charAt(0); i++)
+             buf.write(0);
+         buf.write(b);
+         return buf.toByteArray();
+     } catch (IOException e) {
+         throw new AssertionError(e);
+     }
+ }
+ 
+ public static final String ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";  // Everything except 0OIl
+ private static final BigInteger ALPHABET_SIZE = BigInteger.valueOf(ALPHABET.length());
+ 
+ public static byte[] addressToScript(String addr)
+ {
+   byte[] retval = null;
+
+   byte[] addrbin = base58ToBytes(addr);
+   byte addrver = addrbin[0];
+
+   switch (addrver) {
+     case (byte)9:    /* Mainnet script hash */
+     case (byte)193:  /* Testnet script hash */
+        retval = new byte[23];
+        retval[0] = (byte) 0xa9;  /* OP_HASH160 */
+        retval[1] = (byte) 0x14;  /* push 20 bytes */
+        System.arraycopy(addrbin, 1, retval, 2, 20);
+        retval[22] = (byte)0x87;  /* OP_EQUAL */
+     default:
+        retval = new byte[25];
+        retval[0] = (byte) 0x76;  /* OP_DUP */
+        retval[1] = (byte) 0xa9;  /* OP_HASH160 */
+        retval[2] = (byte) 0x14;  /* push 20 bytes */
+        System.arraycopy(addrbin, 1, retval, 3, 20);
+        retval[23] = (byte) 0x88;  /* OP_EQUALVERIFY */
+        retval[24] = (byte) 0xac;  /* OP_CHECKSIG */
+   }
+   return retval;
+ }
+
 }

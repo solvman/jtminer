@@ -1,5 +1,7 @@
 package live.thought.jtminer.runtime;
 
+import java.math.BigInteger;
+
 import live.thought.jtminer.data.DataUtils;
 
 public class EncodingTest
@@ -20,6 +22,11 @@ public class EncodingTest
     System.out.println("Reverse: " + reversehash);
 
    System.out.println(Long.toHexString(Long.reverseBytes(31400000000L)));
+   
+   byte[] t1 = DataUtils.encodeCompact(126L);
+   BigInteger t2 = new BigInteger(t1);
+   BigInteger t3 = DataUtils.decodeCompactBits(t2.longValue());
+   System.out.println("Value: " + t3.intValue());
     
   }
 

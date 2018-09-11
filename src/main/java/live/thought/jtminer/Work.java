@@ -25,7 +25,6 @@ package live.thought.jtminer;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
-import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -33,25 +32,19 @@ import live.thought.jtminer.algo.SHA256d;
 import live.thought.jtminer.data.BlockImpl;
 import live.thought.jtminer.data.CoinbaseTransaction;
 import live.thought.jtminer.data.DataUtils;
-import live.thought.thought4j.ThoughtClientInterface.BlockTemplate;
 import live.thought.thought4j.ThoughtClientInterface;
+import live.thought.thought4j.ThoughtClientInterface.BlockTemplate;
 
 public class Work
 {
   private static final Logger LOG = Logger.getLogger(Work.class.getCanonicalName());
-  static
-  {
-    LOG.setLevel(Level.ALL);
-    for (Handler handler : LOG.getParent().getHandlers())
-      handler.setLevel(Level.ALL);
-  }
+
   long                        height;
-  private byte[]              data;                    // little-endian
   private BigInteger          target;
 
   private BlockImpl           block;
   private CoinbaseTransaction coinbaseTransaction;
-
+  SHA256d                     localHasher    = new SHA256d(32);
   
 
   public Work(BlockTemplate blt)
@@ -61,22 +54,25 @@ public class Work
     coinbaseTransaction = new CoinbaseTransaction(blt.height(), blt.coinbasevalue(), Miner.getInstance().getCoinbaseAddress());
     block.setCoinbaseTransaction(coinbaseTransaction);
 
-    data = block.getHeader();
     BigInteger lBits = new BigInteger(DataUtils.hexStringToByteArray(blt.bits()));
     target = DataUtils.decodeCompactBits(lBits.longValue());    
+    LOG.setLevel(Level.ALL);
   }
 
-  public boolean submit(ThoughtClientInterface client, int nonce, int[] solution) throws IOException
+  public boolean submit(ThoughtClientInterface client, int[] solution) throws IOException
   {
     boolean retval = false;
-   
-    block.setNonce(nonce);
+
     block.setCuckooSolution(solution);
     String blockStr = DataUtils.byteArrayToHexString(block.getHex());
     try
     {
-      LOG.finest("Submitting: " + blockStr);
-      retval = client.submitBlock(blockStr);
+      localHasher.update(block.getHeader());
+      String result = client.submitBlock(blockStr);
+      if (null == result)
+      {
+        retval = true;
+      }
     }
     catch (Exception e)
     {
@@ -91,12 +87,13 @@ public class Work
     StringBuilder sb = new StringBuilder();
     for (int n = 0; n < solution.length; n++)
     {
-      sb.append(String.format("%08X", Integer.reverseBytes(solution[n]))); 
-      //sb.append(String.format("%08X", solution[n]));  
+      sb.append(String.format("%08X", Integer.reverseBytes(solution[n])));  
     }
+
     hasher.update(DataUtils.hexStringToByteArray(sb.toString()));
     byte[] hash = hasher.doubleDigest();
-    BigInteger hashValue = new BigInteger(hash);
+
+    BigInteger hashValue = new BigInteger(DataUtils.reverseBytes(hash));
     
     if (hashValue.compareTo(BigInteger.ZERO) == -1)
     {
@@ -108,11 +105,6 @@ public class Work
     }
     
     return retval;  
-  }
-
-  public byte[] getData()
-  {
-    return data;
   }
   
   public BlockImpl getBlock()

@@ -3,29 +3,16 @@
 //Copyright (c) 2013-2016 John Tromp
 package live.thought.jtminer.algo;
 
-import java.util.Set;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-
 import java.util.HashSet;
+import java.util.Set;
 
 public class CuckooSolve
 {
-	private static final Logger LOG = Logger.getLogger(CuckooSolve.class.getCanonicalName());
-	static
-	{
-	  LOG.setLevel(Level.ALL);
-	  for (Handler handler : LOG.getParent().getHandlers())
-	      handler.setLevel(Level.ALL);
-	}
-	
   public static final int MAXPATHLEN = 4096;
-  Cuckoo           graph;
-  int              easiness;
-  int[]            cuckoo;
-  int              nthreads;
+  Cuckoo                  graph;
+  int                     easiness;
+  int[]                   cuckoo;
+  int                     nthreads;
 
   public CuckooSolve(byte[] hdr, int en, int nt)
   {
@@ -43,7 +30,7 @@ public class CuckooSolve
     {
       if (++nu >= MAXPATHLEN)
       {
-    	String msg = null;
+        String msg = null;
         while (nu-- != 0 && us[nu] != u)
           ;
         if (nu < 0)
@@ -81,8 +68,8 @@ public class CuckooSolve
     {
       retval = sol;
     }
-    //else
-    //  System.out.println("Only recovered " + n + " nonces");
+    // else
+    // System.out.println("Only recovered " + n + " nonces");
     return retval;
   }
 

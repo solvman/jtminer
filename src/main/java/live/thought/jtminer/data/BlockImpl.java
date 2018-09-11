@@ -251,7 +251,7 @@ public class BlockImpl implements Hexable
      MerkleTree mt = new MerkleTree(coinbase, getTransactions());
     
     byte[] merkle_bytes = mt.getRoot();
-    System.arraycopy(merkle_bytes, 0, data, offset, merkle_bytes.length);
+    System.arraycopy(DataUtils.reverseBytes(merkle_bytes), 0, data, offset, merkle_bytes.length);
     offset += merkle_bytes.length;
     
     DataUtils.uint32ToByteArrayLE(time, data, offset);
@@ -283,7 +283,6 @@ public class BlockImpl implements Hexable
     for (int i = 0; i < 42; i++)
     {
       byte[] cnon = DataUtils.hexStringToByteArray(String.format("%08X", Integer.reverseBytes(cuckooSolution[i])));
-      //byte[] cnon = DataUtils.hexStringToByteArray(String.format("%08X", cuckooSolution[i]));
       System.arraycopy(cnon, 0, tmp, off, 4);
       off += 4;
     }
@@ -291,7 +290,7 @@ public class BlockImpl implements Hexable
     
     //
     // Transactions 
-    // TODO: Make it do all transactions - just doing coinbase for testing.
+    // 
     bytes.append((byte)(transactions.size()  + 1));
     bytes.append(coinbase.getHex());
     for (TransactionImpl t : transactions)

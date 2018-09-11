@@ -70,7 +70,8 @@ public class MerkleTree
       byte[] data = new byte[64];
       
       hasher.update(cbtx.getHex());
-      tree.add(DataUtils.reverseBytes(hasher.doubleDigest()));
+      byte[] cbtxHash = DataUtils.reverseBytes(hasher.doubleDigest());
+      tree.add(cbtxHash);
       
       for (TransactionImpl t : transactions) {
         hasher.update(t.getHex());

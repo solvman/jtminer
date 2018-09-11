@@ -44,20 +44,20 @@ public class TransactionImpl implements Hexable
 
   public TransactionImpl(Transaction trans)
   {
-    account = trans.account();
-    address = trans.address();
-    category = trans.category();
-    amount = trans.amount();
-    fee = trans.fee();
-    confirmations = trans.confirmations();
-    blockHash = trans.blockHash();
-    blockIndex = trans.blockIndex();
-    blockTime = trans.blockTime();
-    txId = trans.txId();
-    time = trans.time();
-    timeReceived = trans.timeReceived();
-    comment = trans.comment();
-    commentTo = trans.commentTo();
+    //account = trans.account();
+    //address = trans.address();
+    //category = trans.category();
+    //amount = trans.amount();
+    //fee = trans.fee();
+    //confirmations = trans.confirmations();
+    //blockHash = trans.blockHash();
+    //blockIndex = trans.blockIndex();
+    //blockTime = trans.blockTime();
+    //txId = trans.txId();
+    //time = trans.time();
+    //timeReceived = trans.timeReceived();
+    //comment = trans.comment();
+    //commentTo = trans.commentTo();
     hex = trans.raw().hex();
     hash = trans.raw().hash();
   }

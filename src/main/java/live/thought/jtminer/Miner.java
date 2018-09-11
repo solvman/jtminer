@@ -67,12 +67,14 @@ public class Miner implements Observer
   private long                             lastWorkErrors;
 
   private static Miner                     instance;
+  private static boolean                   debug = false;
 
   protected String                         coinbaseAddr;
 
   private static final Logger              LOG;
+  private static final Logger              mainLogger;
   static {
-    Logger mainLogger = Logger.getLogger("live.thought");
+    mainLogger = Logger.getLogger("live.thought");
     mainLogger.setUseParentHandlers(false);
     ConsoleHandler handler = new ConsoleHandler();
     handler.setFormatter(new SimpleFormatter() {
@@ -88,8 +90,8 @@ public class Miner implements Observer
         }
     });
     mainLogger.addHandler(handler);
+    mainLogger.setLevel(Level.ALL);
     LOG = Logger.getLogger(Miner.class.getName());
-
     LOG.setLevel(Level.ALL);
 
     options.addOption("h", "host", true, "Thought RPC server host (default: localhost)");
@@ -99,6 +101,7 @@ public class Miner implements Observer
     options.addOption("t", "threads", true, "Number of miner threads to use");
     options.addOption("c", "coinbase-addr", true, "Address to deliver coinbase reward to");
     options.addOption("H", "help", true, "Displays usage information");
+    options.addOption("D", "debug", true, "Set debugging output on");
   }
 
   public Miner(String host, int port, String user, String pass, String coinbase, long retryPause, int nThread)
@@ -114,11 +117,8 @@ public class Miner implements Observer
     try
     {
       url = new URL("http://" + user + ':' + pass + "@" + host + ":" + port + "/");
-
-      ThoughtClientInterface client = new ThoughtRPCClient(url);
-
-      poller = new Poller(client);
-      worker = new Worker(client, retryPause, nThread);
+      poller = new Poller(new ThoughtRPCClient(url));
+      worker = new Worker(new ThoughtRPCClient(url), retryPause, nThread);
     }
     catch (MalformedURLException e)
     {
@@ -236,6 +236,12 @@ public class Miner implements Observer
     lastWorkSolutions = worker.getSolutions();
   }
   
+  public static boolean getDebug()
+  {
+    return debug;
+  }
+
+  
   protected static void usage()
   {
     HelpFormatter formatter = new HelpFormatter();
@@ -290,6 +296,11 @@ public class Miner implements Observer
       {
         usage();
         System.exit(1);
+      }
+      if (commandLine.hasOption("debug"))
+      {
+        Miner.mainLogger.setLevel(Level.ALL);;
+        Miner.debug = true;
       }
       new Miner(host, port, user, pass, coinbase, retryPause, nThread);
     }

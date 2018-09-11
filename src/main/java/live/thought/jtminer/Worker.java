@@ -27,8 +27,6 @@ import java.util.Observable;
 import java.util.Observer;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.logging.Handler;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import live.thought.jtminer.algo.Cuckoo;
@@ -38,23 +36,17 @@ import live.thought.thought4j.ThoughtClientInterface;
 
 public class Worker extends Observable implements Observer, Runnable
 {
-  private static final Logger LOG = Logger.getLogger(Worker.class.getCanonicalName());
-  static
-  {
-    LOG.setLevel(Level.ALL);
-    for (Handler handler : LOG.getParent().getHandlers())
-      handler.setLevel(Level.ALL);
-  }
+  private static final Logger    LOG        = Logger.getLogger(Worker.class.getCanonicalName());
 
   private ThoughtClientInterface client;
   private int                    nThreads;
 
-  private volatile Work          curWork      = null;
-  private AtomicLong             cycles       = new AtomicLong(0L);
-  private AtomicLong             nonces       = new AtomicLong(0L);
-  private AtomicLong             errors       = new AtomicLong(0L);
-  private AtomicLong             solutions    = new AtomicLong(0L);
-  private AtomicInteger          cycleIndex   = new AtomicInteger(0);
+  private volatile Work          curWork    = null;
+  private AtomicLong             cycles     = new AtomicLong(0L);
+  private AtomicLong             nonces     = new AtomicLong(0L);
+  private AtomicLong             errors     = new AtomicLong(0L);
+  private AtomicLong             solutions  = new AtomicLong(0L);
+  private AtomicInteger          cycleIndex = new AtomicInteger(0);
 
   public Worker(ThoughtClientInterface client, long pauseMillis)
   {
@@ -130,14 +122,15 @@ public class Worker extends Observable implements Observer, Runnable
       if (null != curWork)
       {
         LOG.finest("Target: " + curWork.getTarget().toString(16));
-        LOG.finest("Starting work checkers.");
+        LOG.info("Starting " + nThreads + " solvers.");
+
+        BlockImpl block = curWork.getBlock();
+        int blockNonce = cycleIndex.getAndIncrement();
+        block.setNonce(blockNonce);
+        CuckooSolve solve = new CuckooSolve(block.getHeader(), Cuckoo.NNODES, nThreads);
         for (int n = 0; n < nThreads; n++)
         {
-          BlockImpl block = curWork.getBlock();
-          int blockNonce = cycleIndex.getAndIncrement();
-          block.setNonce(blockNonce);
-          CuckooSolve solve = new CuckooSolve(block.getHeader(), Cuckoo.NNODES, nThreads);
-          WorkChecker checker = new WorkChecker(client, curWork, blockNonce, solve);
+          WorkChecker checker = new WorkChecker(client, curWork, cycleIndex.getAndIncrement(), solve);
           checker.addObserver(Miner.getInstance());
           Miner.getInstance().getPoller().addObserver(checker);
 

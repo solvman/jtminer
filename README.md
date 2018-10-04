@@ -7,10 +7,10 @@ This is a work in progress, not production-ready code, and is being provided as-
 ### Building ###
 Building jtminer requires Java 8 (or higher) Development Kit and Maven.
 
-jtminer depends on the [thought4j RPC library] (https://github.com/thoughtnetwork/jtminer).  
+jtminer depends on the [thought4j RPC library] (https://github.com/thoughtnetwork/thought4j).  
 Clone and install thought4j before building jtminer.
 
-`git clone https://github.com/thoughtnetwork/jtminer.git`  
+`git clone https://github.com/thoughtnetwork/thought4j.git`  
 `cd thought4j`  
 `mvn install`  
 

@@ -23,7 +23,7 @@ Once thought4j is installed, clone and build jtminer.
 The build will produce a shaded jar file in the target directory of the repository.  
 
 ### Running ###
-Mining with jtminer requires a running Thought wallet or Thought daemon on testnet with the RPC server enabled.  Binary distributions of a testnet-only daemon and wallet can be found at PUT_LINK_HERE.
+Mining with jtminer requires a running Thought wallet or Thought daemon on testnet with the RPC server enabled.  Binary distributions of a testnet-only daemon and wallet can be found at https://github.com/thoughtnetwork/thought-wallet.
 
 Install the testnet distribution, then run the testnet wallet.  This will sync the wallet with the Thought testnet, and generate the local configuration directory.  Close the wallet and edit the Thought configuration file to enable the RPC server.  The Thought configuration file can be found on Linux and Mac in /home/username/.thought/thought.conf, and on Windows at C:/Users/username/AppData/Roaming/Thought/thought.conf.  Create the thought.conf file in the appropriate location if one does not exist.
 

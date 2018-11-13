@@ -228,12 +228,39 @@ public class Miner implements Observer
       long solutions = worker.getSolutions() - lastWorkSolutions;
       float speed = (float) cycles / Math.max(1, System.currentTimeMillis() - lastWorkTime);
       LOG.info(String.format("%d nonces, %d solutions, %d cycles, %.2f kilocycles/sec, %d errors", nonces, solutions, cycles, speed, errors));
+      // Check for a failed worker and restart if needed.
+      if (speed == 0)
+      {
+        if (worker.isWarning())
+        {
+          // This is the second update at 0, create a new worker.
+          worker.stop();
+          worker.deleteObservers();
+          Worker tmp = new Worker(worker.getClient(), worker.getPauseMillis(), worker.getnThreads());
+          worker = tmp;
+          worker.addObserver(this);
+          Thread t = new Thread(worker);
+          t.start();
+        }
+        else
+        {
+          // This is the first time, so warn.
+          worker.setWarning(true);
+        }
+      }
+      else
+      {
+        // If we've had a warning but now we're working, clear it.
+        worker.setWarning(false);
+      }
     }
     lastWorkTime = System.currentTimeMillis();
     lastWorkCycles = worker.getCycles();
     lastWorkNonces = worker.getNonces();
     lastWorkErrors = worker.getErrors();
     lastWorkSolutions = worker.getSolutions();
+    
+    
   }
   
   public static boolean getDebug()

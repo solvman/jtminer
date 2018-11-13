@@ -40,6 +40,8 @@ public class Worker extends Observable implements Observer, Runnable
 
   private ThoughtClientInterface client;
   private int                    nThreads;
+  private long                   pauseMillis;
+  private boolean                warning;
 
   private volatile Work          curWork    = null;
   private AtomicLong             cycles     = new AtomicLong(0L);
@@ -59,6 +61,8 @@ public class Worker extends Observable implements Observer, Runnable
     if (nThreads < 0)
       throw new IllegalArgumentException();
     this.nThreads = nThreads;
+    this.pauseMillis = pauseMillis;
+    warning = false;
   }
 
   public long getCycles()
@@ -99,6 +103,35 @@ public class Worker extends Observable implements Observer, Runnable
   public void incrementSolutions()
   {
     solutions.incrementAndGet();
+  }
+
+  
+  
+  public boolean isWarning()
+  {
+    return warning;
+  }
+
+  public void setWarning(boolean warning)
+  {
+    this.warning = warning;
+  }
+
+  
+
+  public ThoughtClientInterface getClient()
+  {
+    return client;
+  }
+
+  public int getnThreads()
+  {
+    return nThreads;
+  }
+
+  public long getPauseMillis()
+  {
+    return pauseMillis;
   }
 
   private volatile boolean running = false;

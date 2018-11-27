@@ -229,22 +229,28 @@ public class Miner implements Observer
       float speed = (float) cycles / Math.max(1, System.currentTimeMillis() - lastWorkTime);
       LOG.info(String.format("%d nonces, %d solutions, %d cycles, %.2f kilocycles/sec, %d errors", nonces, solutions, cycles, speed, errors));
       // Check for a failed worker and restart if needed.
-      if (speed == 0)
+      if (cycles == 0)
       {
         if (worker.isWarning())
         {
           // This is the second update at 0, create a new worker.
+          LOG.warning("Restarting stalled worker.");
           worker.stop();
           worker.deleteObservers();
+          poller.deleteObserver(worker);
           Worker tmp = new Worker(worker.getClient(), worker.getPauseMillis(), worker.getnThreads());
           worker = tmp;
+          System.gc();
           worker.addObserver(this);
+          poller.addObserver(worker);
           Thread t = new Thread(worker);
           t.start();
+          LOG.info("Worker restarted.");
         }
         else
         {
           // This is the first time, so warn.
+          LOG.warning("Worker may be stalled.");
           worker.setWarning(true);
         }
       }

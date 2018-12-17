@@ -12,9 +12,9 @@ import live.thought.jtminer.algo.CuckooSolve;
 import live.thought.jtminer.algo.SHA256d;
 import live.thought.thought4j.ThoughtClientInterface;
 
-public class WorkChecker extends Observable implements Observer, Runnable
+public class Solver extends Observable implements Observer, Runnable
 {
-  private static final Logger LOG = Logger.getLogger(WorkChecker.class.getCanonicalName());
+  private static final Logger LOG = Logger.getLogger(Solver.class.getCanonicalName());
 
   //private static final long      THROTTLE_WAIT_TIME = 100L * 1000000L;    // ns
   private int                    index;
@@ -24,7 +24,7 @@ public class WorkChecker extends Observable implements Observer, Runnable
   private SHA256d                hasher             = new SHA256d(32);
   private AtomicBoolean          stop               = new AtomicBoolean();
 
-  public WorkChecker(ThoughtClientInterface client, Work curWork, int index, CuckooSolve solve)
+  public Solver(ThoughtClientInterface client, Work curWork, int index, CuckooSolve solve)
   {
     this.solve = solve;
     this.index = index;

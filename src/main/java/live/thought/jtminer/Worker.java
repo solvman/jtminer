@@ -147,7 +147,8 @@ public class Worker extends Observable implements Observer, Runnable
   public void run()
   {
     running = true;
-    LOG.finest("Starting worker.");
+    LOG.finest("Starting worker using " + nThreads + " threads.");
+    
 
     while (running)
     {
@@ -155,7 +156,7 @@ public class Worker extends Observable implements Observer, Runnable
       if (null != curWork)
       {
         LOG.finest("Target: " + curWork.getTarget().toString(16));
-        LOG.info("Starting " + nThreads + " solvers.");
+        LOG.finest("Starting " + nThreads + " solvers.");
 
         BlockImpl block = curWork.getBlock();
         int blockNonce = cycleIndex.getAndIncrement();

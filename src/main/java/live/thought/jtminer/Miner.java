@@ -237,7 +237,8 @@ public class Miner implements Observer
           LOG.warning("Restarting stalled worker.");
           worker.stop();
           worker.deleteObservers();
-          poller.deleteObserver(worker);
+          poller.deleteObservers();
+          poller.addObserver(this);
           Worker tmp = new Worker(worker.getClient(), worker.getPauseMillis(), worker.getnThreads());
           worker = tmp;
           System.gc();
@@ -250,7 +251,7 @@ public class Miner implements Observer
         else
         {
           // This is the first time, so warn.
-          LOG.warning("Worker may be stalled.");
+          LOG.finest("Worker may be stalled.");
           worker.setWarning(true);
         }
       }

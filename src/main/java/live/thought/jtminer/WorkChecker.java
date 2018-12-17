@@ -39,6 +39,8 @@ public class WorkChecker extends Observable implements Observer, Runnable
     this.stop.set(true);
     this.setChanged();
     this.notifyObservers();
+    Miner.getInstance().getPoller().deleteObserver(this);
+    deleteObserver(Miner.getInstance());
   }
 
   public void run()
@@ -83,8 +85,7 @@ public class WorkChecker extends Observable implements Observer, Runnable
                     boolean success = curWork.submit(client, soln);
                     setChanged();
                     notifyObservers(success ? Notification.POW_TRUE : Notification.POW_FALSE);
-                    stop.set(true);
-                    Thread.currentThread().interrupt();
+                    stop();
                     break;
                   }
                 }
@@ -121,7 +122,7 @@ public class WorkChecker extends Observable implements Observer, Runnable
     }
     catch (RuntimeException re)
     {
-      LOG.warning("Illegal cycle.");
+      LOG.finest("Illegal cycle.");
     }
     LOG.finest("Exiting solver " + index);
     Thread.currentThread().interrupt();
@@ -133,11 +134,7 @@ public class WorkChecker extends Observable implements Observer, Runnable
     Notification n = (Notification) arg;
     if (n == Notification.NEW_WORK)
     {
-      deleteObserver(Miner.getInstance());
-      Miner.getInstance().getPoller().deleteObserver(this);
-      stop.set(true);
-      setChanged();
-      this.notifyObservers();
+      stop();
     }
   }
 }

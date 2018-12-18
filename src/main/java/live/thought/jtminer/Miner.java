@@ -64,13 +64,15 @@ public class Miner implements Observer
   /** Longpoll client */
   private Poller                           poller;
   /** Performance metrics */
-  private long                             lastWorkTime;
-  private long                             lastWorkCycles;
-  private long                             lastWorkSolutions;
+  private long                             lastWorkTime = 0L;
+  private long                             lastWorkCycles = 0L;
+  private long                             lastWorkSolutions = 0L;
   private long                             lastWorkErrors;
   private AtomicLong                       cycles       = new AtomicLong(0L);
   private AtomicLong                       errors       = new AtomicLong(0L);
   private AtomicLong                       solutions    = new AtomicLong(0L);
+  private long                             attempted = 0L;
+  private long                             accepted  = 0L;
 
   /** Work in progress */
   private volatile Work                    curWork      = null;
@@ -237,15 +239,18 @@ public class Miner implements Observer
     }
     else if (n == Notification.NEW_BLOCK_DETECTED)
     {
-      Console.output("@|bold,white LONGPOLL detected new block|@");
+      Console.debug("LONGPOLL detected new block", 2);
     }
     else if (n == Notification.POW_TRUE)
     {
-      Console.output("@|white PROOF OF WORK RESULT:|@ @|bold,white true|@ @|bold,green (yay!!!)|@");
+      attempted++;
+      accepted++;
+      Console.output(String.format("@|bold,white Accepted block %d of %d|@ @|bold,green (yay!!!)|@", accepted, attempted));
     }
     else if (n == Notification.POW_FALSE)
     {
-      Console.output("@|white PROOF OF WORK RESULT:|@ @|bold,white false @|bold,red (boo...)|@");
+      attempted++;
+      Console.output(String.format("@|white Rejected block attempt %d|@ @|bold,red (boo...)|@", attempted));
     }
     else if (n == Notification.NEW_WORK)
     {

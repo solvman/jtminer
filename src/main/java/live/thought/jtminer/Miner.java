@@ -24,16 +24,13 @@ package live.thought.jtminer;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Date;
+import java.util.ArrayList;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.Level;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -42,58 +39,59 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-import live.thought.thought4j.ThoughtClientInterface;
+import live.thought.jtminer.algo.Cuckoo;
+import live.thought.jtminer.algo.CuckooSolve;
+import live.thought.jtminer.data.BlockImpl;
+import live.thought.jtminer.util.Console;
 import live.thought.thought4j.ThoughtRPCClient;
 
+/**
+ * @author phil_000
+ *
+ */
 public class Miner implements Observer
 {
   /** Options for the command line parser. */
-  protected static final Options           options             = new Options();
+  protected static final Options           options      = new Options();
   /** The Commons CLI command line parser. */
-  protected static final CommandLineParser gnuParser           = new GnuParser();
+  protected static final CommandLineParser gnuParser    = new GnuParser();
+  /** Default values for connection. */
+  private static final String              DEFAULT_HOST = "localhost";
+  private static final int                 DEFAULT_PORT = 10617;
+  private static final String              DEFAULT_USER = "user";
+  private static final String              DEFAULT_PASS = "pass";
 
-  private static final String              DEFAULT_HOST        = "localhost";
-  private static final int                 DEFAULT_PORT        = 10617;
-  private static final String              DEFAULT_USER        = "user";
-  private static final String              DEFAULT_PASS        = "pass";
-  private static final long                DEFAULT_RETRY_PAUSE = 10000;
-
-  private Worker                           worker;
+  /** Longpoll client */
   private Poller                           poller;
+  /** Performance metrics */
   private long                             lastWorkTime;
   private long                             lastWorkCycles;
   private long                             lastWorkSolutions;
-  private long                             lastWorkNonces;
   private long                             lastWorkErrors;
+  private AtomicLong                       cycles       = new AtomicLong(0L);
+  private AtomicLong                       errors       = new AtomicLong(0L);
+  private AtomicLong                       solutions    = new AtomicLong(0L);
 
+  /** Work in progress */
+  private volatile Work                    curWork      = null;
+  private AtomicInteger                    cycleIndex   = new AtomicInteger(0);
+
+  /** Single instance */
   private static Miner                     instance;
-  private static boolean                   debug = false;
+  /** Control printing of debug messages */
+  private static int                       debugLevel   = 1;
 
+  /** Runtime parameters */
   protected String                         coinbaseAddr;
+  protected boolean                        moreElectricity;
+  protected int                            nThreads;
 
-  private static final Logger              LOG;
-  private static final Logger              mainLogger;
-  static {
-    mainLogger = Logger.getLogger("live.thought");
-    mainLogger.setUseParentHandlers(false);
-    ConsoleHandler handler = new ConsoleHandler();
-    handler.setFormatter(new SimpleFormatter() {
-        private static final String format = "[%1$tF %1$tT] [%2$-7s] %3$s %n";
+  /** Connection for solvers */
+  private ThoughtRPCClient                 client;
 
-        @Override
-        public synchronized String format(LogRecord lr) {
-            return String.format(format,
-                    new Date(lr.getMillis()),
-                    lr.getLevel().getLocalizedName(),
-                    lr.getMessage()
-            );
-        }
-    });
-    mainLogger.addHandler(handler);
-    mainLogger.setLevel(Level.ALL);
-    LOG = Logger.getLogger(Miner.class.getName());
-    LOG.setLevel(Level.ALL);
-
+  /** Set up command line options. */
+  static
+  {
     options.addOption("h", "host", true, "Thought RPC server host (default: localhost)");
     options.addOption("P", "port", true, "Thought RPC server port (default: 10617)");
     options.addOption("u", "user", true, "Thought server RPC user");
@@ -102,47 +100,69 @@ public class Miner implements Observer
     options.addOption("c", "coinbase-addr", true, "Address to deliver coinbase reward to");
     options.addOption("H", "help", true, "Displays usage information");
     options.addOption("D", "debug", true, "Set debugging output on");
+
+    Console.setLevel(debugLevel);
   }
 
-  public Miner(String host, int port, String user, String pass, String coinbase, long retryPause, int nThread)
+  /**
+   * Constructs an instance of Miner. Protected for Singleton.
+   * 
+   * @param host
+   *          The thoughtd RPC host
+   * @param port
+   *          The thoughtd RPC port
+   * @param user
+   *          The thoughtd RPC username
+   * @param pass
+   *          The thoughtd RPC password
+   * @param coinbase
+   *          The address to assign coinbase transactions to
+   * @param nThread
+   *          The number of solver threads to use. Will default to the number of
+   *          available CPUs.
+   */
+  protected Miner(String host, int port, String user, String pass, String coinbase, int nThread)
   {
     Miner.instance = this;
     if (nThread < 1)
+    {
       throw new IllegalArgumentException("Invalid number of threads: " + nThread);
-    if (retryPause < 0L)
-      throw new IllegalArgumentException("Invalid retry pause: " + retryPause);
-
+    }
+    else
+    {
+      this.nThreads = nThread;
+    }
     this.coinbaseAddr = coinbase;
     URL url = null;
     try
     {
       url = new URL("http://" + user + ':' + pass + "@" + host + ":" + port + "/");
+      client = new ThoughtRPCClient(url);
+
+      // Poller thread gets its own connection
       poller = new Poller(new ThoughtRPCClient(url));
-      worker = new Worker(new ThoughtRPCClient(url), retryPause, nThread);
+      Thread t = new Thread(poller);
+      poller.addObserver(this);
+      t.setPriority(Thread.MIN_PRIORITY);
+      t.start();
     }
     catch (MalformedURLException e)
     {
       throw new IllegalArgumentException("Invalid URL: " + url);
     }
-    worker.addObserver(this);
-    Thread t = new Thread(worker);
-    t.start();
 
-    t = new Thread(poller);
-    poller.addObserver(this);
-    poller.addObserver(worker);
-    t.setPriority(Thread.MIN_PRIORITY);
-    t.start();
-    
-    TimerTask reporter = new TimerTask() {
-        public void run() {
-            report();
-        }
+    // Set up timer for performance metric reporting
+    TimerTask reporter = new TimerTask()
+    {
+      public void run()
+      {
+        report();
+      }
     };
     Timer timer = new Timer("Timer");
-     
-    long delay  = 30000L;
-    long period = 30000L;
+
+    long delay = 15000L;
+    long period = 15000L;
     timer.scheduleAtFixedRate(reporter, delay, period);
   }
 
@@ -151,9 +171,9 @@ public class Miner implements Observer
     return instance;
   }
 
-  public Worker getWorker()
+  public int getDebugLevel()
   {
-    return worker;
+    return debugLevel;
   }
 
   public Poller getPoller()
@@ -166,55 +186,76 @@ public class Miner implements Observer
     return coinbaseAddr;
   }
 
+  public void incrementCycles()
+  {
+    cycles.incrementAndGet();
+  }
+
+  public void incrementSolutions()
+  {
+    solutions.incrementAndGet();
+  }
+
+  public void incrementErrors()
+  {
+    errors.incrementAndGet();
+  }
+
   public void update(Observable o, Object arg)
   {
     Notification n = (Notification) arg;
     if (n == Notification.SYSTEM_ERROR)
     {
-      LOG.severe("System error");
-      System.exit(1);
+      Console.output("@|red System error|@");
+      moreElectricity = false;
     }
     else if (n == Notification.PERMISSION_ERROR)
     {
-      LOG.severe("Permission error");
-      System.exit(1);
+      Console.output("@|red Permission Error|@");
+      moreElectricity = false;
     }
     else if (n == Notification.AUTHENTICATION_ERROR)
     {
-      LOG.severe("Invalid worker username or password");
-      System.exit(1);
+      Console.output("@|red Invalid worker username or password|@");
+      moreElectricity = false;
     }
     else if (n == Notification.CONNECTION_ERROR)
     {
-      LOG.warning("Connection error, retrying in " + poller.getRetryPause() / 1000L + " seconds");
+      Console.output("@|yellow Connection error, retrying in " + poller.getRetryPause() / 1000L + " seconds|@");
     }
     else if (n == Notification.COMMUNICATION_ERROR)
     {
-      LOG.warning("Communication error");
+      Console.output("@|red Communication error|@");
     }
     else if (n == Notification.LONG_POLLING_FAILED)
     {
-      LOG.warning("Long polling failed");
+      Console.output("@|red Long polling failed|@");
     }
     else if (n == Notification.LONG_POLLING_ENABLED)
     {
-      LOG.info("Long polling activated");
+      Console.output("@|bold,white Long polling activated|@");
     }
     else if (n == Notification.NEW_BLOCK_DETECTED)
     {
-      LOG.info("LONGPOLL detected new block");
+      Console.output("@|bold,white LONGPOLL detected new block|@");
     }
     else if (n == Notification.POW_TRUE)
     {
-      LOG.info("PROOF OF WORK RESULT: true (yay!!!)");
+      Console.output("@|white PROOF OF WORK RESULT:|@ @|bold,white true|@ @|bold,green (yay!!!)|@");
     }
     else if (n == Notification.POW_FALSE)
     {
-      LOG.info("PROOF OF WORK RESULT: false (booooo)");
+      Console.output("@|white PROOF OF WORK RESULT:|@ @|bold,white false @|bold,red (boo...)|@");
     }
     else if (n == Notification.NEW_WORK)
     {
-      report();
+      Console.debug("Getting new work.", 2);
+      curWork = getPoller().getWork();
+      if (null != curWork)
+      {
+        Console.debug("New work retrieved.", 2);
+      }
+      cycleIndex.set(0);
     }
   }
 
@@ -222,64 +263,75 @@ public class Miner implements Observer
   {
     if (lastWorkTime > 0L)
     {
-      long cycles = worker.getCycles() - lastWorkCycles;
-      long nonces = worker.getNonces() - lastWorkNonces;
-      long errors = worker.getErrors() - lastWorkErrors;
-      long solutions = worker.getSolutions() - lastWorkSolutions;
-      float speed = (float) cycles / Math.max(1, System.currentTimeMillis() - lastWorkTime);
-      LOG.info(String.format("%d nonces, %d solutions, %d cycles, %.2f kilocycles/sec, %d errors", nonces, solutions, cycles, speed, errors));
-      // Check for a failed worker and restart if needed.
-      if (cycles == 0)
-      {
-        if (worker.isWarning())
-        {
-          // This is the second update at 0, create a new worker.
-          LOG.warning("Restarting stalled worker.");
-          worker.stop();
-          worker.deleteObservers();
-          poller.deleteObservers();
-          poller.addObserver(this);
-          Worker tmp = new Worker(worker.getClient(), worker.getPauseMillis(), worker.getnThreads());
-          worker = tmp;
-          System.gc();
-          worker.addObserver(this);
-          poller.addObserver(worker);
-          Thread t = new Thread(worker);
-          t.start();
-          LOG.info("Worker restarted.");
-        }
-        else
-        {
-          // This is the first time, so warn.
-          LOG.finest("Worker may be stalled.");
-          worker.setWarning(true);
-        }
-      }
-      else
-      {
-        // If we've had a warning but now we're working, clear it.
-        worker.setWarning(false);
-      }
+      long currentCycles = cycles.get() - lastWorkCycles;
+      long currentErrors = errors.get() - lastWorkErrors;
+      long currentSolutions = solutions.get() - lastWorkSolutions;
+      float speed = (float) currentCycles / Math.max(1, System.currentTimeMillis() - lastWorkTime);
+      Console.output(String.format("%d cycles, %d solutions, %d errors, %.2f kilocycles/sec", currentCycles, currentSolutions,
+          currentErrors, speed));     
     }
     lastWorkTime = System.currentTimeMillis();
-    lastWorkCycles = worker.getCycles();
-    lastWorkNonces = worker.getNonces();
-    lastWorkErrors = worker.getErrors();
-    lastWorkSolutions = worker.getSolutions();
-    
-    
-  }
-  
-  public static boolean getDebug()
-  {
-    return debug;
+    lastWorkCycles = cycles.get();
+    lastWorkErrors = errors.get();
+    lastWorkSolutions = solutions.get();
   }
 
-  
   protected static void usage()
   {
     HelpFormatter formatter = new HelpFormatter();
     formatter.printHelp("Miner", options);
+  }
+
+  public void run()
+  {
+    moreElectricity = true;
+    Console.output("Using " + nThreads + " threads.");
+
+    while (moreElectricity)
+    {
+      ArrayList<Thread> threads = new ArrayList<Thread>(nThreads);
+      if (null != curWork)
+      {
+        Console.debug(String.format("Target: %064x", curWork.getTarget()), 2);
+        Console.debug("Starting " + nThreads + " solvers.", 2);
+
+        BlockImpl block = curWork.getBlock();
+        int blockNonce = cycleIndex.getAndIncrement();
+        block.setNonce(blockNonce);
+        CuckooSolve solve = new CuckooSolve(block.getHeader(), Cuckoo.NNODES, nThreads);
+        for (int n = 0; n < nThreads; n++)
+        {
+          Solver solver = new Solver(client, curWork, cycleIndex.getAndIncrement(), solve);
+          solver.addObserver(Miner.getInstance());
+          Miner.getInstance().getPoller().addObserver(solver);
+
+          Thread t = new Thread(solver);
+          threads.add(t);
+          t.start();
+        }
+
+        for (Thread t : threads)
+        {
+          try
+          {
+            t.join();
+          }
+          catch (InterruptedException e)
+          {
+            // Swallow
+          }
+        }
+      }
+      // Wait a bit for some work
+      try
+      {
+        Thread.sleep(1000);
+      }
+      catch (InterruptedException e)
+      {
+        // quiet
+      }
+    }
   }
 
   public static void main(String[] args)
@@ -290,7 +342,6 @@ public class Miner implements Observer
     String pass = DEFAULT_PASS;
     String coinbase = null;
     int nThread = Runtime.getRuntime().availableProcessors();
-    long retryPause = DEFAULT_RETRY_PAUSE;
     CommandLine commandLine = null;
 
     try
@@ -333,10 +384,11 @@ public class Miner implements Observer
       }
       if (commandLine.hasOption("debug"))
       {
-        Miner.mainLogger.setLevel(Level.ALL);;
-        Miner.debug = true;
+        Console.setLevel(2);
       }
-      new Miner(host, port, user, pass, coinbase, retryPause, nThread);
+      Miner miner = new Miner(host, port, user, pass, coinbase, nThread);
+      miner.run();
+      Console.end();
     }
     catch (ParseException pe)
     {

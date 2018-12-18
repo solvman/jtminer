@@ -5,18 +5,15 @@ import java.security.GeneralSecurityException;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 
 import live.thought.jtminer.algo.Cuckoo;
 import live.thought.jtminer.algo.CuckooSolve;
 import live.thought.jtminer.algo.SHA256d;
+import live.thought.jtminer.util.Console;
 import live.thought.thought4j.ThoughtClientInterface;
 
 public class Solver extends Observable implements Observer, Runnable
 {
-  private static final Logger LOG = Logger.getLogger(Solver.class.getCanonicalName());
-
-  //private static final long      THROTTLE_WAIT_TIME = 100L * 1000000L;    // ns
   private int                    index;
   private CuckooSolve            solve;
   private Work                   curWork;
@@ -35,17 +32,22 @@ public class Solver extends Observable implements Observer, Runnable
 
   public synchronized void stop()
   {
-    LOG.finest("Stopping solver " + index);
+    Console.debug("Stopping solver " + index, 2);
     this.stop.set(true);
     this.setChanged();
     this.notifyObservers();
+    cleanup();  
+  }
+
+  public void cleanup()
+  {
     Miner.getInstance().getPoller().deleteObserver(this);
     deleteObserver(Miner.getInstance());
   }
-
+  
   public void run()
   {
-    LOG.finest("Starting solver " + index);
+    Console.debug("Starting solver " + index, 2);
     int[] cuckoo = solve.getCuckoo();
     int[] us = new int[CuckooSolve.MAXPATHLEN], vs = new int[CuckooSolve.MAXPATHLEN];
     try
@@ -57,7 +59,6 @@ public class Solver extends Observable implements Observer, Runnable
           Thread.currentThread().interrupt();
           break;
         }
-        Miner.getInstance().getWorker().incrementNonces();
         int u = cuckoo[us[0] = (int) solve.getGraph().sipnode(nonce, 0)];
         int v = cuckoo[vs[0] = (int) (Cuckoo.NEDGES + solve.getGraph().sipnode(nonce, 1))];
         if (u == vs[0] || v == us[0])
@@ -69,13 +70,13 @@ public class Solver extends Observable implements Observer, Runnable
           for (nu -= min, nv -= min; us[nu] != vs[nv]; nu++, nv++)
             ;
           int len = nu + nv + 1;
-          Miner.getInstance().getWorker().incrementCycles();
+          Miner.getInstance().incrementCycles();
           if (len == Cuckoo.PROOFSIZE)
           {
             int[] soln = solve.solution(us, nu, vs, nv);
             if (null != soln)
             {
-              Miner.getInstance().getWorker().incrementSolutions();
+              Miner.getInstance().incrementSolutions();
               try
               {
                 if (solve.getGraph().verify(soln, Cuckoo.NNODES))
@@ -91,16 +92,16 @@ public class Solver extends Observable implements Observer, Runnable
                 }
                 else
                 {
-                  Miner.getInstance().getWorker().incrementErrors();
+                  Miner.getInstance().incrementErrors();
                 }
               }
               catch (GeneralSecurityException e)
               {
-                LOG.warning(e.toString());
+                Console.output(e.toString());
               }
               catch (IOException e)
               {
-                LOG.warning(e.toString());
+                Console.output(e.toString());
               }
             }
           }
@@ -122,10 +123,10 @@ public class Solver extends Observable implements Observer, Runnable
     }
     catch (RuntimeException re)
     {
-      LOG.finest("Illegal cycle.");
+      Console.debug("Illegal cycle.", 2);
     }
-    LOG.finest("Exiting solver " + index);
-    Thread.currentThread().interrupt();
+    cleanup();
+    Console.debug("Exiting solver " + index, 2);
   }
 
   @Override

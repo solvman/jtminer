@@ -26,15 +26,13 @@ import java.io.IOException;
 import java.security.AccessControlException;
 import java.util.Observable;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 
+import live.thought.jtminer.util.Console;
 import live.thought.thought4j.ThoughtClientInterface;
 import live.thought.thought4j.ThoughtClientInterface.BlockTemplate;
 
 public class Poller extends Observable implements Runnable
 {
-  private static final Logger      LOG       = Logger.getLogger(Poller.class.getCanonicalName());
-
   protected long                   retryPause = 10000;
   protected ThoughtClientInterface client;
 
@@ -72,7 +70,7 @@ public class Poller extends Observable implements Runnable
   @Override
   public void run()
   {
-	  LOG.finest("Starting poller.");
+	Console.debug("Starting poller.", 2);
     BlockTemplate bl = client.getBlockTemplate();
     String longpollid = bl.longpollid();
     if (null != longpollid)
@@ -99,7 +97,7 @@ public class Poller extends Observable implements Runnable
           {
             setChanged();
             notifyObservers(Notification.NEW_BLOCK_DETECTED);
-            LOG.info(String.format("Current block is %d", bl.height()));
+            Console.output(String.format("@|cyan Current block is %d|@", bl.height()));
 
             w = new Work(bl);
             synchronized (workMutex)

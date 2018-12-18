@@ -10,7 +10,7 @@ import org.fusesource.jansi.Ansi;
 public abstract class Console
 {
   protected static int debugLevel;
-  protected static final SimpleDateFormat sdf = new SimpleDateFormat("[YYYY-MM-dd HH:mm:ss.SSS] ");
+  protected static final SimpleDateFormat sdf = new SimpleDateFormat("[YYYY-MM-dd HH:mm:ss] ");
   
   static {
     AnsiConsole.systemInstall();   

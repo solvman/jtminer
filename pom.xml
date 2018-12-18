@@ -8,12 +8,12 @@
 	<name>Java Thought Miner</name>
 	<description>Mining software for the Thought Network</description>
 	<dependencies>
+		<!-- https://mvnrepository.com/artifact/org.fusesource.jansi/jansi -->
 		<dependency>
-			<groupId>com.diogonunes</groupId>
-			<artifactId>JCDP</artifactId>
-			<version>2.0.3.1</version>
+			<groupId>org.fusesource.jansi</groupId>
+			<artifactId>jansi</artifactId>
+			<version>1.17.1</version>
 		</dependency>
-
 		<dependency>
 			<groupId>commons-cli</groupId>
 			<artifactId>commons-cli</artifactId>

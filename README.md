@@ -43,6 +43,7 @@ This will display the usage message for jtminer.
 usage: Miner
  -c,--coinbase-addr <arg>   Address to deliver coinbase reward to
  -D,--debug <arg>           Set debugging output on
+ -f,--config <arg>          Configuration file to load options from
  -h,--host <arg>            Thought RPC server host (default: localhost)
  -H,--help <arg>            Displays usage information
  -P,--port <arg>            Thought RPC server port (default: 10617)
@@ -52,14 +53,17 @@ usage: Miner
 ```
 
 To start mining on testnet, issue the following command:  
-`java -jar target/jtminer-0.0.1-SNAPSHOT-jar-with-dependencies.jar --host localhost --port 11617 --user someusername --password somepassword --coinbase-addr the-address-created-in-wallet`  
+`java -jar target/jtminer-0.1-SNAPSHOT-jar-with-dependencies.jar --host localhost --port 11617 --user someusername --password somepassword --coinbase-addr the-address-created-in-wallet`  
 
 Replace the values for user and password with the ones you created in the thought.conf for rpcuser and rpcpassword, and the coinbase address with the receiving address you created in the wallet.
 
+Optionally, arguments can be specified in a Java-style properties file (see jtminer.config.example), and the miner can be started with the following command:
+`java -jar target/jtminer-0.1-SNAPSHOT-jar-with-dependencies.jar --config jtminer.properties`
+
+This option may be more secure than specifying a password on the command line.  Note that command line options and a configuration file can be mixed.  In this case, the command line options will override values specified in the config file.
 
 
 
-`
   
 
 

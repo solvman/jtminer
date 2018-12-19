@@ -116,7 +116,7 @@ public class Miner implements Observer
     options.addOption("c", COINBASE_PROPERTY, true, "Address to deliver coinbase reward to");
     options.addOption("H", HELP_OPTION, true, "Displays usage information");
     options.addOption("D", DEBUG_OPTION, true, "Set debugging output on");
-    options.addOption("c", CONFIG_OPTION, true, "Configuration file to load options from.  Command line options override config file.");
+    options.addOption("f", CONFIG_OPTION, true, "Configuration file to load options from.  Command line options override config file.");
 
     Console.setLevel(debugLevel);
   }

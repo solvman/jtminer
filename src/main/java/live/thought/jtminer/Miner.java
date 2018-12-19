@@ -22,11 +22,14 @@
  */
 package live.thought.jtminer;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.Properties;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -51,37 +54,48 @@ import live.thought.thought4j.ThoughtRPCClient;
  */
 public class Miner implements Observer
 {
+  /** RELEASE VERSION */
+  public static final String               VERSION             = "v0.1";
   /** Options for the command line parser. */
-  protected static final Options           options      = new Options();
+  protected static final Options           options             = new Options();
   /** The Commons CLI command line parser. */
-  protected static final CommandLineParser gnuParser    = new GnuParser();
+  protected static final CommandLineParser gnuParser           = new GnuParser();
   /** Default values for connection. */
-  private static final String              DEFAULT_HOST = "localhost";
-  private static final int                 DEFAULT_PORT = 10617;
-  private static final String              DEFAULT_USER = "user";
-  private static final String              DEFAULT_PASS = "pass";
+  private static final String              DEFAULT_HOST        = "localhost";
+  private static final String              DEFAULT_PORT        = "10617";
+  private static final String              DEFAULT_USER        = "user";
+  private static final String              DEFAULT_PASS        = "password";
 
+  private static final String              HOST_PROPERTY       = "host";
+  private static final String              PORT_PROPERTY       = "port";
+  private static final String              USER_PROPERTY       = "user";
+  private static final String              PASS_PROPERTY       = "password";
+  private static final String              THREAD_PROPERTY     = "threads";
+  private static final String              COINBASE_PROPERTY   = "coinbase-addr";
+  private static final String              DEBUG_OPTION        = "debug";
+  private static final String              HELP_OPTION         = "help";
+  private static final String              CONFIG_OPTION       = "config";
   /** Longpoll client */
   private Poller                           poller;
   /** Performance metrics */
-  private long                             lastWorkTime = 0L;
-  private long                             lastWorkCycles = 0L;
-  private long                             lastWorkSolutions = 0L;
+  private long                             lastWorkTime        = 0L;
+  private long                             lastWorkCycles      = 0L;
+  private long                             lastWorkSolutions   = 0L;
   private long                             lastWorkErrors;
-  private AtomicLong                       cycles       = new AtomicLong(0L);
-  private AtomicLong                       errors       = new AtomicLong(0L);
-  private AtomicLong                       solutions    = new AtomicLong(0L);
-  private long                             attempted = 0L;
-  private long                             accepted  = 0L;
+  private AtomicLong                       cycles              = new AtomicLong(0L);
+  private AtomicLong                       errors              = new AtomicLong(0L);
+  private AtomicLong                       solutions           = new AtomicLong(0L);
+  private long                             attempted           = 0L;
+  private long                             accepted            = 0L;
 
   /** Work in progress */
-  private volatile Work                    curWork      = null;
-  private AtomicInteger                    cycleIndex   = new AtomicInteger(0);
+  private volatile Work                    curWork             = null;
+  private AtomicInteger                    cycleIndex          = new AtomicInteger(0);
 
   /** Single instance */
   private static Miner                     instance;
   /** Control printing of debug messages */
-  private static int                       debugLevel   = 1;
+  private static int                       debugLevel          = 1;
 
   /** Runtime parameters */
   protected String                         coinbaseAddr;
@@ -94,14 +108,15 @@ public class Miner implements Observer
   /** Set up command line options. */
   static
   {
-    options.addOption("h", "host", true, "Thought RPC server host (default: localhost)");
-    options.addOption("P", "port", true, "Thought RPC server port (default: 10617)");
-    options.addOption("u", "user", true, "Thought server RPC user");
-    options.addOption("p", "password", true, "Thought server RPC password");
-    options.addOption("t", "threads", true, "Number of miner threads to use");
-    options.addOption("c", "coinbase-addr", true, "Address to deliver coinbase reward to");
-    options.addOption("H", "help", true, "Displays usage information");
-    options.addOption("D", "debug", true, "Set debugging output on");
+    options.addOption("h", HOST_PROPERTY, true, "Thought RPC server host (default: localhost)");
+    options.addOption("P", PORT_PROPERTY, true, "Thought RPC server port (default: 10617)");
+    options.addOption("u", USER_PROPERTY, true, "Thought server RPC user");
+    options.addOption("p", PASS_PROPERTY, true, "Thought server RPC password");
+    options.addOption("t", THREAD_PROPERTY, true, "Number of miner threads to use");
+    options.addOption("c", COINBASE_PROPERTY, true, "Address to deliver coinbase reward to");
+    options.addOption("H", HELP_OPTION, true, "Displays usage information");
+    options.addOption("D", DEBUG_OPTION, true, "Set debugging output on");
+    options.addOption("c", CONFIG_OPTION, true, "Configuration file to load options from.  Command line options override config file.");
 
     Console.setLevel(debugLevel);
   }
@@ -125,6 +140,7 @@ public class Miner implements Observer
    */
   protected Miner(String host, int port, String user, String pass, String coinbase, int nThread)
   {
+    Console.output(String.format("@|bg_blue,fg_white jtminer %s: A Java block miner for Thought Network.|@", VERSION));
     Miner.instance = this;
     if (nThread < 1)
     {
@@ -273,7 +289,7 @@ public class Miner implements Observer
       long currentSolutions = solutions.get() - lastWorkSolutions;
       float speed = (float) currentCycles / Math.max(1, System.currentTimeMillis() - lastWorkTime);
       Console.output(String.format("%d cycles, %d solutions, %d errors, %.2f kilocycles/sec", currentCycles, currentSolutions,
-          currentErrors, speed));     
+          currentErrors, speed));
     }
     lastWorkTime = System.currentTimeMillis();
     lastWorkCycles = cycles.get();
@@ -341,55 +357,87 @@ public class Miner implements Observer
 
   public static void main(String[] args)
   {
-    String host = DEFAULT_HOST;
-    int port = DEFAULT_PORT;
-    String user = DEFAULT_USER;
-    String pass = DEFAULT_PASS;
+    String host = null;
+    int port = -1;
+    String user = null;
+    String pass = null;
     String coinbase = null;
-    int nThread = Runtime.getRuntime().availableProcessors();
+    int nThread = -1;
     CommandLine commandLine = null;
 
     try
     {
+      Properties props = new Properties();
+      // Read the command line
       commandLine = gnuParser.parse(options, args);
-      if (commandLine.hasOption("host"))
+      // Check for the help option
+      if (commandLine.hasOption(HELP_OPTION))
       {
-        host = commandLine.getOptionValue("host");
+        usage();
+        System.exit(0);
       }
-      if (commandLine.hasOption("port"))
+      // Check for a config file specified on the command line
+      if (commandLine.hasOption(CONFIG_OPTION))
       {
-        port = Integer.parseInt(commandLine.getOptionValue("port"));
+        try
+        {
+          props.load(new FileInputStream(new File(commandLine.getOptionValue(CONFIG_OPTION))));
+        }
+        catch (Exception e)
+        {
+          Console.output(String.format("@|red Specified configuration file %s unreadable or not found.|@", commandLine.getOptionValue(CONFIG_OPTION)));
+          System.exit(1);
+        }
       }
-      if (commandLine.hasOption("user"))
+      // Command line options override config file values
+      if (commandLine.hasOption(HOST_PROPERTY))
       {
-        user = commandLine.getOptionValue("user");
+        props.setProperty(HOST_PROPERTY, commandLine.getOptionValue(HOST_PROPERTY));
       }
-      if (commandLine.hasOption("password"))
+      if (commandLine.hasOption(PORT_PROPERTY))
       {
-        pass = commandLine.getOptionValue("password");
+        props.setProperty(PORT_PROPERTY, commandLine.getOptionValue(PORT_PROPERTY));
       }
-      if (commandLine.hasOption("threads"))
+      if (commandLine.hasOption(USER_PROPERTY))
       {
-        nThread = Integer.parseInt(commandLine.getOptionValue("threads"));
+        props.setProperty(USER_PROPERTY, commandLine.getOptionValue(USER_PROPERTY));
       }
-      if (commandLine.hasOption("coinbase-addr"))
+      if (commandLine.hasOption(PASS_PROPERTY))
       {
-        coinbase = commandLine.getOptionValue("coinbase-addr");
+        props.setProperty(PASS_PROPERTY, commandLine.getOptionValue(PASS_PROPERTY));
+      }
+      if (commandLine.hasOption(THREAD_PROPERTY))
+      {
+        props.setProperty(THREAD_PROPERTY, commandLine.getOptionValue(THREAD_PROPERTY));
+      }
+      if (commandLine.hasOption(COINBASE_PROPERTY))
+      {
+        props.setProperty(COINBASE_PROPERTY, commandLine.getOptionValue(COINBASE_PROPERTY));
+      }      
+      if (commandLine.hasOption(DEBUG_OPTION) || null != props.getProperty(DEBUG_OPTION))
+      {
+        Console.setLevel(2);
+      }
+      
+      host = props.getProperty(HOST_PROPERTY, DEFAULT_HOST);
+      port = Integer.parseInt(props.getProperty(PORT_PROPERTY, DEFAULT_PORT));
+      user = props.getProperty(USER_PROPERTY, DEFAULT_USER);
+      pass = props.getProperty(PASS_PROPERTY, DEFAULT_PASS);
+      coinbase = props.getProperty(COINBASE_PROPERTY);
+      if (null == coinbase)
+      {
+        Console.output("@|red No coinbase address specified.|@");
+        usage();
+        System.exit(1);
+      }
+      String s = props.getProperty(THREAD_PROPERTY);
+      if (null == s)
+      {
+        nThread = Runtime.getRuntime().availableProcessors();
       }
       else
       {
-        System.out.println("No coinbase address specified.");
-        usage();
-        System.exit(1);
-      }
-      if (commandLine.hasOption("help"))
-      {
-        usage();
-        System.exit(1);
-      }
-      if (commandLine.hasOption("debug"))
-      {
-        Console.setLevel(2);
+        nThread = Integer.parseInt(s);
       }
       Miner miner = new Miner(host, port, user, pass, coinbase, nThread);
       miner.run();

@@ -1,0 +1,7 @@
+# Example properties file for jtminer
+host = localhost
+port = 10617
+user = user
+password = password
+coinbase-addr = 47TZrzoftLodX1gjbsMEDZPufLjy6uf7jD
+thread = 4

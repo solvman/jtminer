@@ -55,10 +55,7 @@ public class Solver extends Observable implements Observer, Runnable
   public synchronized void stop()
   {
     Console.debug("Stopping solver " + index, 2);
-    this.stop.set(true);
-    this.setChanged();
-    this.notifyObservers();
-    cleanup();  
+    this.stop.set(true); 
   }
 
   public void cleanup()

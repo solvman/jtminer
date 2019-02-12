@@ -4,4 +4,4 @@ port = 10617
 user = user
 password = password
 coinbase-addr = 47TZrzoftLodX1gjbsMEDZPufLjy6uf7jD
-thread = 4
+threads = 4

@@ -33,14 +33,13 @@ import live.thought.thought4j.ThoughtClientInterface.BlockTemplate;
 
 public class Poller extends Observable implements Runnable
 {
-  protected long                   retryPause = 10000;
+  protected long                   retryPause      = 10000;
   protected ThoughtClientInterface client;
 
   protected AtomicBoolean          moreElectricity = new AtomicBoolean(false);
-  protected Work                   currentWork;
-  protected long                   currentHeight;
-  protected int[]                  workMutex = new int[0];
-  
+  protected Work                   currentWork     = null;
+  protected long                   currentHeight   = 0;
+  protected int[]                  workMutex       = new int[0];
 
   public Poller(ThoughtClientInterface client)
   {
@@ -57,11 +56,11 @@ public class Poller extends Observable implements Runnable
   {
     Work retval = null;
 
-      retval = currentWork;
+    retval = currentWork;
 
     return retval;
   }
-  
+
   public long getRetryPause()
   {
     return retryPause;
@@ -70,36 +69,34 @@ public class Poller extends Observable implements Runnable
   @Override
   public void run()
   {
-	Console.debug("Starting poller.", 2);
-    BlockTemplate bl = client.getBlockTemplate();
-    String longpollid = bl.longpollid();
-    if (null != longpollid)
+    Console.debug("Starting poller.", 2);
+    moreElectricity.set(true);
+    boolean notified = false;
+    // Make initial connection for poller
+    BlockTemplate bl = null;
+    String longpollid = null;
+
+    while (moreElectricity.get())
     {
-      moreElectricity.set(true);
-      setChanged();
-      notifyObservers(Notification.LONG_POLLING_ENABLED);
-      Work w = new Work(bl);
-      synchronized (workMutex)
+      try
       {
-        currentWork = w;
-        currentHeight = bl.height();
-      }
-      setChanged();
-      notifyObservers(Notification.NEW_WORK);
-      
-      while (moreElectricity.get())
-      {
-        try
+        bl = client.getBlockTemplate(longpollid);
+        longpollid = bl.longpollid();
+        if (null != bl.longpollid())
         {
-          bl = client.getBlockTemplate(longpollid);
-          longpollid = bl.longpollid();
+          if (!notified)
+          {
+            setChanged();
+            notifyObservers(Notification.LONG_POLLING_ENABLED);
+            notified = true;
+          }
           if (bl.height() > currentHeight)
           {
             setChanged();
             notifyObservers(Notification.NEW_BLOCK_DETECTED);
             Console.output(String.format("@|cyan Current block is %d|@", bl.height()));
 
-            w = new Work(bl);
+            Work w = new Work(bl);
             synchronized (workMutex)
             {
               currentWork = w;
@@ -109,48 +106,45 @@ public class Poller extends Observable implements Runnable
             notifyObservers(Notification.NEW_WORK);
           }
         }
-        catch (Exception e)
+        else
         {
           setChanged();
-          if (e instanceof IllegalArgumentException)
-          {
-            notifyObservers(Notification.AUTHENTICATION_ERROR);
-            shutdown();
-            break;
-          }
-          else if (e instanceof AccessControlException)
-          {
-            notifyObservers(Notification.PERMISSION_ERROR);
-            shutdown();
-            break;
-          }
-          else if (e instanceof IOException)
-          {
-            notifyObservers(Notification.CONNECTION_ERROR);
-          }
-          else
-          {
-            notifyObservers(Notification.COMMUNICATION_ERROR);
-          }
-          try
-          {
-            currentWork = null;
-            Thread.sleep(retryPause);
-          }
-          catch (InterruptedException ie)
-          {
-          }
+          notifyObservers(Notification.LONG_POLLING_FAILED);
+        }
+      }
+      catch (Exception e)
+      {
+        setChanged();
+        if (e instanceof IllegalArgumentException)
+        {
+          notifyObservers(Notification.AUTHENTICATION_ERROR);
+          shutdown();
+          break;
+        }
+        else if (e instanceof AccessControlException)
+        {
+          notifyObservers(Notification.PERMISSION_ERROR);
+          shutdown();
+          break;
+        }
+        else if (e instanceof IOException)
+        {
+          notifyObservers(Notification.CONNECTION_ERROR);
+        }
+        else
+        {
+          notifyObservers(Notification.COMMUNICATION_ERROR);
+        }
+        try
+        {
+          currentWork = null;
+          Thread.sleep(retryPause);
+        }
+        catch (InterruptedException ie)
+        {
         }
       }
     }
-    else
-    {
-      setChanged();
-      notifyObservers(Notification.LONG_POLLING_FAILED);
-    }
-    currentWork = null;
-    setChanged();
-    notifyObservers(Notification.TERMINATED);
   }
 
 }

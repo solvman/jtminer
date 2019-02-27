@@ -237,6 +237,11 @@ public class Miner implements Observer
       Console.output("@|red Invalid worker username or password|@");
       moreElectricity = false;
     }
+    else if (n == Notification.TERMINATED)
+    {
+      Console.output("@|red Poller terminated. Exiting.|@");
+      moreElectricity = false;
+    }
     else if (n == Notification.CONNECTION_ERROR)
     {
       Console.output("@|yellow Connection error, retrying in " + poller.getRetryPause() / 1000L + " seconds|@");
@@ -354,7 +359,7 @@ public class Miner implements Observer
       }
     }
   }
-
+  
   public static void main(String[] args)
   {
     String host = null;

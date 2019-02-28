@@ -1,7 +1,7 @@
 /*
  * jtminer Java mining software for the Thought Network
  * 
- * Copyright (c) 2018, Thought Network LLC
+ * Copyright (c) 2018 - 2019, Thought Network LLC
  * 
  * Based on code from Cuckoo Cycle, a memory-hard proof-of-work
  * Copyright (c) 2013-2016 John Tromp

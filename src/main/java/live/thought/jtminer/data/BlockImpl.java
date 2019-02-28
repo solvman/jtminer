@@ -1,7 +1,7 @@
 /*
  * jtminer Java mining software for the Thought Network
  * 
- * Copyright (c) 2018, Thought Network LLC
+ * Copyright (c) 2018 - 2019, Thought Network LLC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2, as 

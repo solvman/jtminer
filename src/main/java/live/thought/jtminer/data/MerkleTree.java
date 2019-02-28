@@ -1,7 +1,7 @@
 /*
  * jtminer Java mining software for the Thought Network
  * 
- * Copyright (c) 2018, Thought Network LLC
+ * Copyright (c) 2018 - 2019, Thought Network LLC
  * 
  * Contains code from bitcoinj:
  *   Copyright 2011 Google Inc.

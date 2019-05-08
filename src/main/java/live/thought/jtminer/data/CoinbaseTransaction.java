@@ -19,6 +19,9 @@
  */
 package live.thought.jtminer.data;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class CoinbaseTransaction implements Hexable
 {
   protected int    version    = 1;
@@ -27,6 +30,7 @@ public class CoinbaseTransaction implements Hexable
   protected int    outCounter = 1;
   protected long   value;
   protected String address;
+  protected List<PaymentObject> extraPayments;
   protected int    lockTime   = 0;
 
   public CoinbaseTransaction(long height, long value, String coinbaseAddress)
@@ -51,11 +55,6 @@ public class CoinbaseTransaction implements Hexable
     return inCounter;
   }
 
-  public void setInCounter(int inCounter)
-  {
-    this.inCounter = inCounter;
-  }
-
   public long getHeight()
   {
     return height;
@@ -69,11 +68,6 @@ public class CoinbaseTransaction implements Hexable
   public int getOutCounter()
   {
     return outCounter;
-  }
-
-  public void setOutCounter(int outCounter)
-  {
-    this.outCounter = outCounter;
   }
 
   public long getValue()
@@ -96,6 +90,21 @@ public class CoinbaseTransaction implements Hexable
     this.address = address;
   }
 
+  public void addExtraPayment(PaymentObject payment)
+  {
+    if (null == extraPayments)
+    {
+      extraPayments = new ArrayList<PaymentObject>();
+    }
+    extraPayments.add(payment);
+    outCounter += 1;
+  }
+  
+  public List<PaymentObject> getExtraPayments()
+  {
+    return extraPayments;
+  }
+  
   public int getLockTime()
   {
     return lockTime;
@@ -141,10 +150,22 @@ public class CoinbaseTransaction implements Hexable
     // Sequence
     seq = DataUtils.hexStringToByteArray("ffffffff");
     cbtx.append(seq);
-    // tx_out counter
-    cbtx.append((byte) 0x01);
     
-    byte[] val = DataUtils.hexStringToByteArray(String.format("%016X", Long.reverseBytes(value)));
+    // tx_out counter
+    cbtx.append(DataUtils.hexStringToByteArray(String.format("%01X", outCounter)));
+    
+    // First output should be miner payment, which is what's left after the extra payments, so get that value first
+    long minerReward = value;
+    if (null != extraPayments)
+    {
+      for (PaymentObject p : extraPayments)
+      {
+        minerReward -= p.getValue();
+      }   
+    }
+    
+    // Do the miner reward output
+    byte[] val = DataUtils.hexStringToByteArray(String.format("%016X", Long.reverseBytes(minerReward)));
     cbtx.append(val);
     
     // Address size
@@ -154,6 +175,24 @@ public class CoinbaseTransaction implements Hexable
     cbtx.append(len);
     // Payment Address
     cbtx.append(addr);
+    
+    // Now do the extra payments
+    if (null != extraPayments)
+    {
+      for (PaymentObject p : extraPayments)
+      {
+        val = DataUtils.hexStringToByteArray(String.format("%016X", Long.reverseBytes(p.getValue())));
+        cbtx.append(val);
+        
+        // Address size
+        addr = DataUtils.addressToScript(p.getPayee());
+        len = DataUtils.encodeCompact(addr.length);
+        
+        cbtx.append(len);
+        // Payment Address
+        cbtx.append(addr); 
+      }   
+    }
     
     // Lock time
     byte[] loc = { 0x00, 0x00, 0x00, 0x00 };

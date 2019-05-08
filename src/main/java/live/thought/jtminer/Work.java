@@ -25,6 +25,7 @@ package live.thought.jtminer;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -32,8 +33,10 @@ import live.thought.jtminer.algo.SHA256d;
 import live.thought.jtminer.data.BlockImpl;
 import live.thought.jtminer.data.CoinbaseTransaction;
 import live.thought.jtminer.data.DataUtils;
+import live.thought.jtminer.data.PaymentObject;
 import live.thought.thought4j.ThoughtClientInterface;
 import live.thought.thought4j.ThoughtClientInterface.BlockTemplate;
+import live.thought.thought4j.ThoughtClientInterface.Masternode;
 
 public class Work
 {
@@ -52,6 +55,27 @@ public class Work
     height = blt.height();
     block = new BlockImpl(blt);
     coinbaseTransaction = new CoinbaseTransaction(blt.height(), blt.coinbasevalue(), Miner.getInstance().getCoinbaseAddress());
+    
+    try 
+    {
+      if (blt.masternode_payments_started())
+      {
+        List<Masternode> outputs = blt.masternode();
+        for (Masternode m : outputs)
+        {
+          PaymentObject p = new PaymentObject();
+          p.setPayee(m.payee());
+          p.setScript(m.script());
+          p.setValue(m.amount());
+          coinbaseTransaction.addExtraPayment(p);
+        }      
+      }
+    }
+    catch (Exception e)
+    {
+      // Not thought_dash daemon, so ignore this error
+    }
+    
     block.setCoinbaseTransaction(coinbaseTransaction);
 
     BigInteger lBits = new BigInteger(DataUtils.hexStringToByteArray(blt.bits()));

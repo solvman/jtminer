@@ -27,6 +27,7 @@ import java.io.FileInputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.Properties;
@@ -55,7 +56,7 @@ import live.thought.thought4j.ThoughtRPCClient;
 public class Miner implements Observer
 {
   /** RELEASE VERSION */
-  public static final String               VERSION             = "v0.1";
+  public static final String               VERSION             = "v0.2.1";
   /** Options for the command line parser. */
   protected static final Options           options             = new Options();
   /** The Commons CLI command line parser. */
@@ -75,6 +76,7 @@ public class Miner implements Observer
   private static final String              DEBUG_OPTION        = "debug";
   private static final String              HELP_OPTION         = "help";
   private static final String              CONFIG_OPTION       = "config";
+  private static final String              VOTING_OPTION       = "vote";
   /** Longpoll client */
   private Poller                           poller;
   /** Performance metrics */
@@ -104,6 +106,9 @@ public class Miner implements Observer
 
   /** Connection for solvers */
   private ThoughtRPCClient                 client;
+  
+  /** BIP-9 voting **/
+  private List<Integer>                    voteBits;
 
   /** Set up command line options. */
   static
@@ -117,6 +122,7 @@ public class Miner implements Observer
     options.addOption("H", HELP_OPTION, true, "Displays usage information");
     options.addOption("D", DEBUG_OPTION, true, "Set debugging output on");
     options.addOption("f", CONFIG_OPTION, true, "Configuration file to load options from.  Command line options override config file.");
+    options.addOption("v", VOTING_OPTION, true, "Comma separated list of BIP-9 soft fork voting bits to set in mined blocks.");
 
     Console.setLevel(debugLevel);
   }
@@ -138,7 +144,7 @@ public class Miner implements Observer
    *          The number of solver threads to use. Will default to the number of
    *          available CPUs.
    */
-  protected Miner(String host, int port, String user, String pass, String coinbase, int nThread)
+  protected Miner(String host, int port, String user, String pass, String coinbase, int nThread, List<Integer> voteBits)
   {
     Console.output(String.format("@|bg_blue,fg_white jtminer %s: A Java block miner for Thought Network.|@", VERSION));
     Miner.instance = this;
@@ -158,7 +164,7 @@ public class Miner implements Observer
       client = new ThoughtRPCClient(url);
 
       // Poller thread gets its own connection
-      poller = new Poller(new ThoughtRPCClient(url));
+      poller = new Poller(new ThoughtRPCClient(url), voteBits);
       Thread t = new Thread(poller);
       poller.addObserver(this);
       t.setPriority(Thread.MIN_PRIORITY);
@@ -369,6 +375,7 @@ public class Miner implements Observer
     String coinbase = null;
     int nThread = -1;
     CommandLine commandLine = null;
+    List<Integer> voting = new ArrayList<Integer>();
 
     try
     {
@@ -423,6 +430,10 @@ public class Miner implements Observer
       {
         Console.setLevel(2);
       }
+      if (commandLine.hasOption(VOTING_OPTION))
+      {
+        props.setProperty(VOTING_OPTION, commandLine.getOptionValue(VOTING_OPTION));
+      }
       
       host = props.getProperty(HOST_PROPERTY, DEFAULT_HOST);
       port = Integer.parseInt(props.getProperty(PORT_PROPERTY, DEFAULT_PORT));
@@ -444,7 +455,17 @@ public class Miner implements Observer
       {
         nThread = Integer.parseInt(s);
       }
-      Miner miner = new Miner(host, port, user, pass, coinbase, nThread);
+      String votes = props.getProperty(VOTING_OPTION);
+      if (null != votes && votes.length() > 0)
+      {
+        String[] bits = votes.split(",");
+        for (String b : bits)
+        {
+          voting.add(Integer.parseInt(b));
+        }     
+      }
+      
+      Miner miner = new Miner(host, port, user, pass, coinbase, nThread, voting);
       miner.run();
       Console.end();
     }

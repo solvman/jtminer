@@ -102,6 +102,7 @@ public class Solver extends Observable implements Observer, Runnable
                 {
                   if (curWork.meetsTarget(index, soln, hasher))
                   {
+                    Console.debug("Trying to submit.", 2);
                     boolean success = curWork.submit(client, soln);
                     setChanged();
                     notifyObservers(success ? Notification.POW_TRUE : Notification.POW_FALSE);

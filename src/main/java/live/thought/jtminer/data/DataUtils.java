@@ -121,8 +121,18 @@ public class DataUtils
     out[offset + 1] = (byte) (0xFF & (val >> 8));
     out[offset + 2] = (byte) (0xFF & (val >> 16));
     out[offset + 3] = (byte) (0xFF & (val >> 24));
+  }  
+  
+  public static byte reverseBitsByte(byte x) {
+    int intSize = 8;
+    byte y=0;
+    for(int position=intSize-1; position>0; position--){
+      y+=((x&1)<<position);
+      x >>= 1;
+    }
+    return y;
   }
-
+  
   public static long readUint32(byte[] bytes, int offset)
   {
     return ((bytes[offset++] & 0xFFL) << 0) | ((bytes[offset++] & 0xFFL) << 8) | ((bytes[offset++] & 0xFFL) << 16)

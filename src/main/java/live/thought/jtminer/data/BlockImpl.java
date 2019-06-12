@@ -25,6 +25,7 @@ import java.util.List;
 
 import live.thought.thought4j.ThoughtClientInterface.Block;
 import live.thought.thought4j.ThoughtClientInterface.BlockTemplate;
+import live.thought.thought4j.ThoughtClientInterface.BlockTemplateTransaction;
 import live.thought.thought4j.ThoughtClientInterface.Transaction;
 
 public class BlockImpl implements Hexable
@@ -45,6 +46,8 @@ public class BlockImpl implements Hexable
   protected String previousHash;
   protected String chainwork;
   protected int[] cuckooSolution;
+  
+  protected int[] voteBits;
   
   protected CoinbaseTransaction coinbase;
 
@@ -73,13 +76,38 @@ public class BlockImpl implements Hexable
     setTime(blt.curtime());
     setBits(blt.bits());
     setPreviousHash(blt.previousblockhash());
-    List<Transaction> trans = blt.transactions();
+    List<BlockTemplateTransaction> trans = blt.transactions();
     transactions = new ArrayList<TransactionImpl>(trans.size());
-    for (Transaction t: trans)
+    for (BlockTemplateTransaction t: trans)
     {
       transactions.add(new TransactionImpl(t));
     }
   }
+  
+  public BlockImpl(BlockTemplate blt, List<Integer> voteBits)
+  {
+    setHeight(blt.height());
+    setVersion(blt.version());
+    setTime(blt.curtime());
+    setBits(blt.bits());
+    setPreviousHash(blt.previousblockhash());
+    List<BlockTemplateTransaction> trans = blt.transactions();
+    transactions = new ArrayList<TransactionImpl>(trans.size());
+    for (BlockTemplateTransaction t: trans)
+    {
+      transactions.add(new TransactionImpl(t));
+    }
+    
+    if (null != voteBits)
+    {
+      for (int i : voteBits)
+      {
+        this.addVoteBit(i);
+      }
+    }
+      
+  }
+
 
   public String getHash()
   {
@@ -236,12 +264,59 @@ public class BlockImpl implements Hexable
     this.cuckooSolution = cuckooSolution;
   }
 
+  public void addVoteBit(int bit)
+  {
+    if (null == voteBits)
+    {
+      voteBits = new int[1];
+      voteBits[0] = bit;
+    } 
+    else
+    {
+      List<Integer> ints = new ArrayList<Integer>();
+      for (int i : voteBits)
+      {
+        ints.add(i);
+      }
+      ints.add(bit);
+      voteBits = new int[ints.size()];
+      int j = 0;
+      for (int i : ints)
+      {
+        voteBits[j] = i;
+        j++;
+      }
+    }
+  }
+  
+  
   public byte[] getHeader()
   {
     byte[] data = new byte[80];
     
     int offset = 0;
-    DataUtils.uint32ToByteArrayLE(version, data, offset);
+    if (null == voteBits)
+    {
+        DataUtils.uint32ToByteArrayLE(version, data, offset);
+    }
+    else
+    {
+        long t = 1 << 27;
+        
+        for (int i : voteBits)
+        { 
+           t = (t | (1 << voteBits[i])); 
+        }
+        
+        long mask = 0xF0000000 & version;
+        t = t | mask;
+        
+          data[offset + 3] = (byte) (0xFF & (t >> 24));  
+          data[offset + 2] = (byte) (0xFF & (t >> 16));
+          data[offset + 1] = (byte) (0xFF & (t >> 8));
+          data[offset + 0] = (byte) (0xFF & (t >> 0));
+      
+    }
     offset += 4;
     
     byte[] prev = DataUtils.hexStringToByteArray(previousHash);

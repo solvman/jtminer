@@ -24,9 +24,11 @@ package live.thought.jtminer;
 
 import java.io.IOException;
 import java.security.AccessControlException;
+import java.util.List;
 import java.util.Observable;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import live.thought.jtminer.data.BlockImpl;
 import live.thought.jtminer.util.Console;
 import live.thought.thought4j.ThoughtClientInterface;
 import live.thought.thought4j.ThoughtClientInterface.BlockTemplate;
@@ -40,10 +42,18 @@ public class Poller extends Observable implements Runnable
   protected Work                   currentWork     = null;
   protected long                   currentHeight   = 0;
   protected int[]                  workMutex       = new int[0];
+  
+  protected List<Integer>          voteBits;
 
   public Poller(ThoughtClientInterface client)
   {
     this.client = client;
+  }
+  
+  public Poller(ThoughtClientInterface client, List<Integer> voteBits)
+  {
+    this.client = client;
+    this.voteBits = voteBits;
   }
 
   public synchronized void shutdown()
@@ -97,6 +107,14 @@ public class Poller extends Observable implements Runnable
             Console.output(String.format("@|cyan Current block is %d|@", bl.height()));
 
             Work w = new Work(bl);
+            if (null != voteBits)
+            {
+              BlockImpl b = w.getBlock();
+              for (int i : voteBits)
+              {
+                b.addVoteBit(i);
+              }
+            }
             synchronized (workMutex)
             {
               currentWork = w;
@@ -133,6 +151,7 @@ public class Poller extends Observable implements Runnable
         }
         else
         {
+          //e.printStackTrace();
           notifyObservers(Notification.COMMUNICATION_ERROR);
         }
         try

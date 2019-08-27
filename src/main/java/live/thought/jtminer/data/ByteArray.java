@@ -85,6 +85,28 @@ public class ByteArray
     }
     return this;
   }
+  
+  public ByteArray append(byte[] b, int index, int length)
+  {
+    if (null != b)
+    {
+      if (null != this.content)
+      {
+        int oldLength = this.content.length;
+        int newLength = oldLength + length;
+        byte[] newContent = new byte[newLength];
+        System.arraycopy(this.content, 0, newContent, 0, this.content.length);
+        System.arraycopy(b, index, newContent, oldLength, length);
+        this.content = newContent;
+      }
+      else
+      {
+        this.content = new byte[length];
+        System.arraycopy(b, index, this.content, 0, length);
+      }
+    }
+    return this;
+  }
 
   public ByteArray set(int index, byte b)
   {

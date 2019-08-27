@@ -76,6 +76,19 @@ public class Work
       // Not thought_dash daemon, so ignore this error
     }
     
+    try 
+    {
+      String payload = blt.coinbase_payload();
+      if (null != payload && payload.length() > 0)
+      {
+        coinbaseTransaction.setExtraPayload(payload);
+      }
+    }
+    catch (Exception e)
+    {
+      // Not thought_dash daemon, so ignore this error
+    }
+    
     block.setCoinbaseTransaction(coinbaseTransaction);
 
     BigInteger lBits = new BigInteger(DataUtils.hexStringToByteArray(blt.bits()));

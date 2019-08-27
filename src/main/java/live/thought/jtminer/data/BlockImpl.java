@@ -305,7 +305,7 @@ public class BlockImpl implements Hexable
         
         for (int i : voteBits)
         { 
-           t = (t | (1 << voteBits[i])); 
+           t = (t | (1 << i)); 
         }
         
         long mask = 0xF0000000 & version;

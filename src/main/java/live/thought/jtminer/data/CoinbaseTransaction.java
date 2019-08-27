@@ -24,7 +24,8 @@ import java.util.List;
 
 public class CoinbaseTransaction implements Hexable
 {
-  protected int    version    = 1;
+  protected int    version    = 3;
+  protected int    type       = 5;
   protected int    inCounter  = 1;
   protected long   height;
   protected int    outCounter = 1;
@@ -32,6 +33,7 @@ public class CoinbaseTransaction implements Hexable
   protected String address;
   protected List<PaymentObject> extraPayments;
   protected int    lockTime   = 0;
+  protected String extraPayload;
 
   public CoinbaseTransaction(long height, long value, String coinbaseAddress)
   {
@@ -114,13 +116,24 @@ public class CoinbaseTransaction implements Hexable
   {
     this.lockTime = lockTime;
   }
+  
+  public void setExtraPayload(String extraPayload)
+  {
+    this.extraPayload = extraPayload;
+  }
+  
+  public String getExtraPayload()
+  {
+    return this.extraPayload;
+  }
+  
 
   @Override
   public byte[] getHex()
   {
     ByteArray cbtx = new ByteArray();
-    
-    cbtx.append(DataUtils.hexStringToByteArray(String.format("%08X", Integer.reverseBytes(version))));
+    cbtx.append(DataUtils.hexStringToByteArray(String.format("%04X", Integer.reverseBytes(version))), 0, 2);
+    cbtx.append(DataUtils.hexStringToByteArray(String.format("%04X", Integer.reverseBytes(type))), 0, 2);
     cbtx.append((byte) 0x01);
     
     byte[] empty = new byte[32];
@@ -145,13 +158,16 @@ public class CoinbaseTransaction implements Hexable
     {
       cbtx.append(new Byte((byte) 0x00));
     }
-    
-    
+
     // Sequence
     seq = DataUtils.hexStringToByteArray("ffffffff");
     cbtx.append(seq);
     
     // tx_out counter
+    if (null != extraPayments)
+    {
+      outCounter += extraPayments.size();
+    }   
     cbtx.append(DataUtils.hexStringToByteArray(String.format("%01X", outCounter)));
     
     // First output should be miner payment, which is what's left after the extra payments, so get that value first
@@ -198,10 +214,14 @@ public class CoinbaseTransaction implements Hexable
     byte[] loc = { 0x00, 0x00, 0x00, 0x00 };
     cbtx.append(loc);
     
-    
-    // Not supporting coinbase signature yet
-
-    // Thought doesn't have any coinbaseaux flags at the moment
+    // Extra payload
+    if (null != extraPayload)
+    {
+      val = DataUtils.hexStringToByteArray(extraPayload);
+      len = DataUtils.encodeCompact(val.length);
+      cbtx.append(len);
+      cbtx.append(val);
+    }
     
     return cbtx.get();
   }

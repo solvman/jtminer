@@ -26,9 +26,7 @@ public class CoinbaseTransaction implements Hexable
 {
   protected int    version    = 3;
   protected int    type       = 5;
-  protected int    inCounter  = 1;
   protected long   height;
-  protected int    outCounter = 1;
   protected long   value;
   protected String address;
   protected List<PaymentObject> extraPayments;
@@ -52,11 +50,6 @@ public class CoinbaseTransaction implements Hexable
     this.version = version;
   }
 
-  public int getInCounter()
-  {
-    return inCounter;
-  }
-
   public long getHeight()
   {
     return height;
@@ -65,11 +58,6 @@ public class CoinbaseTransaction implements Hexable
   public void setHeight(long height)
   {
     this.height = height;
-  }
-
-  public int getOutCounter()
-  {
-    return outCounter;
   }
 
   public long getValue()
@@ -99,7 +87,6 @@ public class CoinbaseTransaction implements Hexable
       extraPayments = new ArrayList<PaymentObject>();
     }
     extraPayments.add(payment);
-    outCounter += 1;
   }
   
   public List<PaymentObject> getExtraPayments()
@@ -160,10 +147,11 @@ public class CoinbaseTransaction implements Hexable
     }
 
     // Sequence
-    seq = DataUtils.hexStringToByteArray("ffffffff");
+    seq = DataUtils.hexStringToByteArray("00000000");
     cbtx.append(seq);
     
     // tx_out counter
+    int outCounter = 1;
     if (null != extraPayments)
     {
       outCounter += extraPayments.size();
@@ -222,7 +210,7 @@ public class CoinbaseTransaction implements Hexable
       cbtx.append(len);
       cbtx.append(val);
     }
-    
+    //System.out.println(DataUtils.byteArrayToHexString(cbtx.get()));
     return cbtx.get();
   }
 }

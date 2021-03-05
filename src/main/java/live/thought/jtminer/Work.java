@@ -55,6 +55,10 @@ public class Work
     height = blt.height();
     block = new BlockImpl(blt);
     coinbaseTransaction = new CoinbaseTransaction(blt.height(), blt.coinbasevalue(), Miner.getInstance().getCoinbaseAddress());
+    if (null != Miner.getInstance().getScript())
+    {
+      coinbaseTransaction.setCoinbaseScript(Miner.getInstance().getScript().getBytes());
+    }
     
     try 
     {
@@ -109,6 +113,10 @@ public class Work
       if (null == result)
       {
         retval = true;
+      }
+      else
+      {
+        System.out.println(result);
       }
     }
     catch (Exception e)

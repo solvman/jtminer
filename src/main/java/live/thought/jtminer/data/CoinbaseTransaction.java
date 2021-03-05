@@ -24,6 +24,8 @@ import java.util.List;
 
 public class CoinbaseTransaction implements Hexable
 {
+  protected static final int COINBASE_SCRIPT_LENGTH = 95;
+  
   protected int    version    = 3;
   protected int    type       = 5;
   protected long   height;
@@ -32,6 +34,7 @@ public class CoinbaseTransaction implements Hexable
   protected List<PaymentObject> extraPayments;
   protected int    lockTime   = 0;
   protected String extraPayload;
+  protected byte[] coinbaseScript;
 
   public CoinbaseTransaction(long height, long value, String coinbaseAddress)
   {
@@ -80,6 +83,21 @@ public class CoinbaseTransaction implements Hexable
     this.address = address;
   }
 
+  public byte[] getCoinbaseScript()
+  {
+    return coinbaseScript;
+  }
+
+  public void setArbitraryData(byte[] coinbaseScript)
+  {
+    this.coinbaseScript = coinbaseScript;
+  }
+
+  public void setExtraPayments(List<PaymentObject> extraPayments)
+  {
+    this.extraPayments = extraPayments;
+  }
+
   public void addExtraPayment(PaymentObject payment)
   {
     if (null == extraPayments)
@@ -113,7 +131,11 @@ public class CoinbaseTransaction implements Hexable
   {
     return this.extraPayload;
   }
-  
+
+  public void setCoinbaseScript(byte[] coinbaseScript)
+  {
+    this.coinbaseScript = coinbaseScript;
+  }
 
   @Override
   public byte[] getHex()
@@ -137,13 +159,23 @@ public class CoinbaseTransaction implements Hexable
       trailingZeroes = 1;
     }
     int scriptSize = heightBytes.length + trailingZeroes + 1;
+    int coinbaseScriptLength = 0;
+    if (null != coinbaseScript && coinbaseScript.length > 0)
+    {
+      coinbaseScriptLength = coinbaseScript.length > COINBASE_SCRIPT_LENGTH ? COINBASE_SCRIPT_LENGTH : coinbaseScript.length;
+      scriptSize += coinbaseScriptLength;
+    }
     // BIP-34 height
     cbtx.append(DataUtils.hexStringToByteArray(String.format("%02X", scriptSize)));
     cbtx.append(DataUtils.hexStringToByteArray(String.format("%02X", heightBytes.length + trailingZeroes)));  
     cbtx.append(heightBytes);
     for (int x = 0; x < trailingZeroes; x++)
     {
-      cbtx.append(new Byte((byte) 0x00));
+      cbtx.append(Byte.valueOf((byte) 0x00));
+    }
+    if (coinbaseScriptLength > 0)
+    {
+      cbtx.append(coinbaseScript, 0, coinbaseScriptLength);
     }
 
     // Sequence

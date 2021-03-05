@@ -15,11 +15,11 @@ public class EncodingTest
     //System.out.println(Integer.reverseBytes(i));
     //System.out.println(Integer.toHexString(Integer.reverseBytes(i)));
 
-    byte[] buf = new byte[4];
-    DataUtils.uint32ToByteArrayBE(536870912, buf, 0);
-    System.out.println(DataUtils.byteArrayToHexString(buf));
-    DataUtils.uint32ToByteArrayLE(536870912, buf, 0);
-    System.out.println(DataUtils.byteArrayToHexString(buf));
+    //byte[] buf = new byte[4];
+    //DataUtils.uint32ToByteArrayBE(536870912, buf, 0);
+    //System.out.println(DataUtils.byteArrayToHexString(buf));
+    //DataUtils.uint32ToByteArrayLE(536870912, buf, 0);
+    //System.out.println(DataUtils.byteArrayToHexString(buf));
   }
 
 }

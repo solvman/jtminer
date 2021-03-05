@@ -78,6 +78,7 @@ public class BlockImpl implements Hexable
     setPreviousHash(blt.previousblockhash());
     List<BlockTemplateTransaction> trans = blt.transactions();
     transactions = new ArrayList<TransactionImpl>(trans.size());
+    
     for (BlockTemplateTransaction t: trans)
     {
       transactions.add(new TransactionImpl(t));
@@ -93,6 +94,7 @@ public class BlockImpl implements Hexable
     setPreviousHash(blt.previousblockhash());
     List<BlockTemplateTransaction> trans = blt.transactions();
     transactions = new ArrayList<TransactionImpl>(trans.size());
+    
     for (BlockTemplateTransaction t: trans)
     {
       transactions.add(new TransactionImpl(t));

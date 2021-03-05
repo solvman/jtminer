@@ -73,10 +73,12 @@ public class Miner implements Observer
   private static final String              PASS_PROPERTY       = "password";
   private static final String              THREAD_PROPERTY     = "threads";
   private static final String              COINBASE_PROPERTY   = "coinbase-addr";
+  private static final String              SCRIPT_PROPERTY     = "script";
   private static final String              DEBUG_OPTION        = "debug";
   private static final String              HELP_OPTION         = "help";
   private static final String              CONFIG_OPTION       = "config";
   private static final String              VOTING_OPTION       = "vote";
+  private static final String              SCRIPT_OPTION       = "script";
   /** Longpoll client */
   private Poller                           poller;
   /** Performance metrics */
@@ -103,6 +105,7 @@ public class Miner implements Observer
   protected String                         coinbaseAddr;
   protected boolean                        moreElectricity;
   protected int                            nThreads;
+  protected String                         script;
 
   /** Connection for solvers */
   private ThoughtRPCClient                 client;
@@ -123,6 +126,7 @@ public class Miner implements Observer
     options.addOption("D", DEBUG_OPTION, true, "Set debugging output on");
     options.addOption("f", CONFIG_OPTION, true, "Configuration file to load options from.  Command line options override config file.");
     options.addOption("v", VOTING_OPTION, true, "Comma separated list of BIP-9 soft fork voting bits to set in mined blocks.");
+    options.addOption("s", SCRIPT_OPTION, true, "Add an optional script to the generated coinbase transaction.  Can be used to 'sign' mined coinbase.");
 
     Console.setLevel(debugLevel);
   }
@@ -144,7 +148,7 @@ public class Miner implements Observer
    *          The number of solver threads to use. Will default to the number of
    *          available CPUs.
    */
-  protected Miner(String host, int port, String user, String pass, String coinbase, int nThread, List<Integer> voteBits)
+  protected Miner(String host, int port, String user, String pass, String coinbase, int nThread, List<Integer> voteBits, String script)
   {
     Console.output(String.format("@|bg_blue,fg_white jtminer %s: A Java block miner for Thought Network.|@", VERSION));
     Miner.instance = this;
@@ -157,6 +161,7 @@ public class Miner implements Observer
       this.nThreads = nThread;
     }
     this.coinbaseAddr = coinbase;
+    this.script = script;
     URL url = null;
     try
     {
@@ -208,6 +213,11 @@ public class Miner implements Observer
   public String getCoinbaseAddress()
   {
     return coinbaseAddr;
+  }
+  
+  public String getScript()
+  {
+    return script;
   }
 
   public void incrementCycles()
@@ -373,6 +383,7 @@ public class Miner implements Observer
     String user = null;
     String pass = null;
     String coinbase = null;
+    String script = null;
     int nThread = -1;
     CommandLine commandLine = null;
     List<Integer> voting = new ArrayList<Integer>();
@@ -434,12 +445,17 @@ public class Miner implements Observer
       {
         props.setProperty(VOTING_OPTION, commandLine.getOptionValue(VOTING_OPTION));
       }
+      if (commandLine.hasOption(SCRIPT_OPTION))
+      {
+        props.setProperty(SCRIPT_OPTION, commandLine.getOptionValue(SCRIPT_OPTION));
+      }
       
       host = props.getProperty(HOST_PROPERTY, DEFAULT_HOST);
       port = Integer.parseInt(props.getProperty(PORT_PROPERTY, DEFAULT_PORT));
       user = props.getProperty(USER_PROPERTY, DEFAULT_USER);
       pass = props.getProperty(PASS_PROPERTY, DEFAULT_PASS);
       coinbase = props.getProperty(COINBASE_PROPERTY);
+      script = props.getProperty(SCRIPT_PROPERTY);
       if (null == coinbase)
       {
         Console.output("@|red No coinbase address specified.|@");
@@ -465,7 +481,7 @@ public class Miner implements Observer
         }     
       }
       
-      Miner miner = new Miner(host, port, user, pass, coinbase, nThread, voting);
+      Miner miner = new Miner(host, port, user, pass, coinbase, nThread, voting, script);
       miner.run();
       Console.end();
     }

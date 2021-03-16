@@ -368,7 +368,8 @@ public class BlockImpl implements Hexable
     //
     // Transactions 
     // 
-    bytes.append((byte)(transactions.size()  + 1));
+    byte[] numTrans = DataUtils.encodeCompact(transactions.size() + 1);
+    bytes.append(numTrans);
     bytes.append(coinbase.getHex());
     for (TransactionImpl t : transactions)
       bytes.append(t.getHex());

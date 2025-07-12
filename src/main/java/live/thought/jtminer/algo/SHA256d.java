@@ -27,32 +27,29 @@ import java.nio.charset.Charset;
 
 import org.bouncycastle.crypto.digests.SHA256Digest;
 
-// TODO: Auto-generated Javadoc
 /**
  * The Class SHA256d.
  * 
  * @author Mahmoud Ismail <mahmoudahmedismail@gmail.com>
  */
-public class SHA256d
-{
+public class SHA256d {
 
   /** The hasher. */
   private SHA256Digest hasher;
 
   /** The digest. */
-  private byte[]       digest;
+  private byte[] digest;
 
   /** The truncate_to. */
-  private int          truncate_to;
+  private int truncate_to;
 
   /**
    * Instantiates a new sH a256d.
    * 
    * @param truncate_to
-   *          the truncate_to
+   *                    the truncate_to
    */
-  public SHA256d(int truncate_to)
-  {
+  public SHA256d(int truncate_to) {
 
     this.hasher = new SHA256Digest();
     this.truncate_to = truncate_to > hasher.getDigestSize() ? hasher.getDigestSize() : truncate_to;
@@ -63,8 +60,7 @@ public class SHA256d
   /**
    * Instantiates a new SHA256d.
    */
-  public SHA256d()
-  {
+  public SHA256d() {
     this.hasher = new SHA256Digest();
     this.digest = new byte[hasher.getDigestSize()];
     ;
@@ -75,10 +71,9 @@ public class SHA256d
    * Update.
    * 
    * @param data
-   *          the data
+   *             the data
    */
-  public void update(String data)
-  {
+  public void update(String data) {
     update(data.getBytes(Charset.forName("UTF-8")));
   }
 
@@ -86,10 +81,9 @@ public class SHA256d
    * Update.
    * 
    * @param data
-   *          the data
+   *             the data
    */
-  public void update(byte[] data)
-  {
+  public void update(byte[] data) {
     hasher.update(data, 0, data.length);
   }
 
@@ -98,22 +92,20 @@ public class SHA256d
    * 
    * @return the byte[]
    */
-  public byte[] doubleDigest()
-  {
+  public byte[] doubleDigest() {
     byte[] h1 = getDigest();
     update(h1);
     byte[] h2 = getDigest();
     System.arraycopy(h2, 0, digest, 0, truncate_to);
     return digest;
   }
-  
+
   /**
    * Digest.
    * 
    * @return the byte[]
    */
-  public byte[] digest()
-  {
+  public byte[] digest() {
     byte[] h1 = getDigest();
     System.arraycopy(h1, 0, digest, 0, truncate_to);
     return digest;
@@ -124,8 +116,7 @@ public class SHA256d
    * 
    * @return the digest
    */
-  private byte[] getDigest()
-  {
+  private byte[] getDigest() {
     byte[] out = new byte[hasher.getDigestSize()];
     hasher.doFinal(out, 0);
     return out;

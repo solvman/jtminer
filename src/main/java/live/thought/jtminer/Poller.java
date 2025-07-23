@@ -33,6 +33,7 @@ import live.thought.jtminer.util.Console;
 import live.thought.thought4j.ThoughtClientInterface;
 import live.thought.thought4j.ThoughtClientInterface.BlockTemplate;
 
+@SuppressWarnings("deprecation")
 public class Poller extends Observable implements Runnable
 {
   protected long                   retryPause      = 10000;
@@ -76,6 +77,7 @@ public class Poller extends Observable implements Runnable
     return retryPause;
   }
 
+  @SuppressWarnings("removal")
   @Override
   public void run()
   {

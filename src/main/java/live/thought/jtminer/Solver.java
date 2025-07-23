@@ -34,6 +34,7 @@ import live.thought.jtminer.algo.SHA256d;
 import live.thought.jtminer.util.Console;
 import live.thought.thought4j.ThoughtClientInterface;
 
+@SuppressWarnings("deprecation")
 public class Solver extends Observable implements Observer, Runnable
 {
   private int                    index;

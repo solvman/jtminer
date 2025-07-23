@@ -53,6 +53,7 @@ import live.thought.thought4j.ThoughtRPCClient;
  * @author phil_000
  *
  */
+@SuppressWarnings("deprecation")
 public class Miner implements Observer {
   /** RELEASE VERSION */
   public static final String VERSION = "v0.4";
